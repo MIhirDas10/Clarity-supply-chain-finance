@@ -1,0 +1,14 @@
+{
+  "name": "clarity-server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "setup": "node setup.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.0.0",
+    "pg": "^8.11.0"
+  }
+}
