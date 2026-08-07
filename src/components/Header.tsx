@@ -54,7 +54,7 @@ export default function Header() {
 
         {/* Avatar */}
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #F97316, #FB923C)" }}
+          style={{ backgroundColor: "#0F172A" }}
         >
           A
         </div>

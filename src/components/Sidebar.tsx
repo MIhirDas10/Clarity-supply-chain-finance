@@ -26,18 +26,18 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-[250px] flex flex-col z-30"
-      style={{ backgroundColor: "var(--sidebar-bg)" }}
+    <aside className="fixed left-0 top-0 bottom-0 w-[250px] flex flex-col z-30 border-r"
+      style={{ backgroundColor: "var(--sidebar-bg)", borderColor: "var(--border)" }}
     >
       {/* ── Logo ──────────────────────────────── */}
       <div className="px-5 pt-5 pb-2">
         <div className="flex items-center gap-2.5 mb-1">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-sm"
-            style={{ background: "linear-gradient(135deg, #F97316, #FB923C)" }}
+            style={{ backgroundColor: "#0F172A" }}
           >
             C
           </div>
-          <span className="text-white font-semibold text-[15px] tracking-tight">
+          <span className="font-semibold text-[15px] tracking-tight" style={{ color: "var(--text-primary)" }}>
             Clarity B2B
           </span>
         </div>
@@ -53,10 +53,10 @@ export default function Sidebar() {
 
       {/* ── CTA Button ────────────────────────── */}
       <div className="px-4 py-3">
-        <button className="w-full py-2.5 rounded-lg text-white text-[13px] font-medium transition-all duration-200 hover:brightness-110 active:scale-[0.97] cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
+        <button className="w-full py-2.5 rounded-lg text-white text-[13px] font-medium transition-all duration-200 hover:opacity-90 active:scale-[0.97] cursor-pointer"
+          style={{ backgroundColor: "#0F172A" }}
         >
-          + New Discount Request
+          New Discount Request
         </button>
       </div>
 
@@ -75,24 +75,14 @@ export default function Sidebar() {
               className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
                 transition-all duration-200 group relative
-                ${isActive
-                  ? "text-white"
-                  : "hover:text-white"
-                }
               `}
               style={{
-                color: isActive ? "#FFFFFF" : "#94A3B8",
-                backgroundColor: isActive ? "var(--sidebar-hover)" : "transparent",
+                color: isActive ? "#FFFFFF" : "var(--text-secondary)",
+                backgroundColor: isActive ? "var(--sidebar-active)" : "transparent",
               }}
             >
-              {/* Orange active indicator */}
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-                  style={{ backgroundColor: "var(--sidebar-active)" }}
-                />
-              )}
               <item.icon size={18} strokeWidth={isActive ? 2 : 1.5}
-                style={{ color: isActive ? "#F97316" : undefined }}
+                style={{ color: isActive ? "#FFFFFF" : "var(--text-secondary)" }}
               />
               {item.label}
             </Link>
@@ -101,15 +91,15 @@ export default function Sidebar() {
       </nav>
 
       {/* ── Bottom ────────────────────────────── */}
-      <div className="px-5 py-4 border-t" style={{ borderColor: "#2D3548" }}>
+      <div className="px-5 py-4 border-t" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium"
-            style={{ background: "linear-gradient(135deg, #3B82F6, #6366F1)" }}
+            style={{ backgroundColor: "var(--text-primary)" }}
           >
             SA
           </div>
           <div>
-            <p className="text-[12px] font-medium text-white leading-tight">
+            <p className="text-[12px] font-medium leading-tight" style={{ color: "var(--text-primary)" }}>
               Supply Admin
             </p>
             <p className="text-[10px]" style={{ color: "#64748B" }}>

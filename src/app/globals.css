@@ -2,29 +2,29 @@
 
 /* ─── Clarity B2B Design Tokens ──────────────────────────────────── */
 :root {
-  --sidebar-bg: #1A1F2E;
-  --sidebar-hover: #252B3B;
-  --sidebar-active: #F97316;
-  --page-bg: #F5F6FA;
+  --sidebar-bg: #F8FAFC;
+  --sidebar-hover: #F1F5F9;
+  --sidebar-active: #0F172A;
+  --page-bg: #F8FAFC;
   --card-bg: #ffffff;
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --card-shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --text-primary: #1E293B;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --card-shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  --text-primary: #0F172A;
   --text-secondary: #64748B;
   --text-muted: #94A3B8;
   --border: #E2E8F0;
   --border-light: #F1F5F9;
-  --accent-green: #10B981;
+  --accent-green: #047857;
   --accent-green-bg: #ECFDF5;
-  --accent-orange: #F97316;
-  --accent-orange-bg: #FFF7ED;
+  --accent-orange: #0F172A;
+  --accent-orange-bg: #F8FAFC;
   --accent-red: #EF4444;
   --accent-red-bg: #FEF2F2;
   --accent-blue: #3B82F6;
   --accent-blue-bg: #EFF6FF;
   --accent-teal: #0D9488;
   --accent-teal-bg: #F0FDFA;
-  --input-focus: #F97316;
+  --input-focus: #0F172A;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -100,7 +100,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--input-focus) !important;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 /* ─── Skeleton Pulse Animation ───────────────────────────────────── */
@@ -143,16 +143,16 @@ textarea:focus {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #F97316;
+  background: #0F172A;
   border: 3px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(249, 115, 22, 0.35);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .clarity-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.45);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.45);
 }
 
 .clarity-slider::-webkit-slider-thumb:active {
@@ -163,16 +163,16 @@ textarea:focus {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #F97316;
+  background: #0F172A;
   border: 3px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(249, 115, 22, 0.35);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .clarity-slider::-moz-range-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.45);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.45);
 }
 
 .clarity-slider::-moz-range-track {
@@ -183,6 +183,6 @@ textarea:focus {
 }
 
 .clarity-slider:focus::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15), 0 1px 4px rgba(249, 115, 22, 0.35);
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.15), 0 1px 4px rgba(15, 23, 42, 0.35);
 }
 

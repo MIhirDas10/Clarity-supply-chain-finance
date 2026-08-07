@@ -303,7 +303,8 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
             onChange={(e) => setDiscountDays(Number(e.target.value))}
             className="clarity-slider w-full h-2 rounded-full appearance-none cursor-pointer"
             style={{
-              background: `linear-gradient(to right, #F97316 0%, #F97316 ${sliderFill}%, #E2E8F0 ${sliderFill}%, #E2E8F0 100%)`,
+              appearance: "none",
+              background: `linear-gradient(to right, #0F172A 0%, #0F172A ${sliderFill}%, #E2E8F0 ${sliderFill}%, #E2E8F0 100%)`,
             }}
           />
 
@@ -397,7 +398,8 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
             disabled={loading}
             className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all duration-200 hover:brightness-110 active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             style={{
-              background: "linear-gradient(135deg, #F97316, #EA580C)",
+              backgroundColor: "#0F172A",
+              border: "1px solid rgba(255,255,255,0.1)",
             }}
           >
             {loading ? (
