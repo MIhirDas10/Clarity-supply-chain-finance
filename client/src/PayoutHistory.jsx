@@ -3,23 +3,38 @@ import { useEffect, useState } from 'react';
 const API_URL = 'http://localhost:4000';
 const SUPPLIER_ID = 1; // later this comes from the logged-in user
 
-// 1250000 -> "৳1,250,000"
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// 1250000 -> "৳ 12,50,000".  "en-IN" groups digits the way Bangladesh and
+// India write money (lakh/crore), which is what Digonta's table uses too.
+// An invoice that is not funded yet has no payout and no discount, so those
+// arrive as null and we show a dash instead.
 function formatTaka(amount) {
-  return '৳' + Number(amount).toLocaleString('en-US');
+  if (amount === null) {
+    return '—';
+  }
+  return '৳ ' + Number(amount).toLocaleString('en-IN');
 }
 
 // "2026-08-03" -> "03 Aug 2026"
+// We split the text instead of using new Date(), because a Date would be
+// shifted by the PC's time zone and could show the wrong day.
 function formatDate(value) {
-  const date = new Date(value);
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  if (value === null) {
+    return '—';
+  }
+  const parts = value.split('-'); // ["2026", "08", "03"]
+  return parts[2] + ' ' + MONTHS[Number(parts[1]) - 1] + ' ' + parts[0];
+}
+
+// "Payout Initiated" -> "chip chip-payout-initiated", so the CSS can colour it.
+function chipClass(status) {
+  return 'chip chip-' + status.toLowerCase().split(' ').join('-');
 }
 
 function PayoutHistory() {
-  const [payouts, setPayouts] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,7 +43,7 @@ function PayoutHistory() {
     fetch(API_URL + '/api/payouts?supplierId=' + SUPPLIER_ID)
       .then((response) => response.json())
       .then((data) => {
-        setPayouts(data);
+        setInvoices(data);
         setLoading(false);
       })
       .catch(() => {
@@ -38,14 +53,21 @@ function PayoutHistory() {
   }, []);
 
   // Add up the three totals shown in the cards at the top.
+  // Every invoice counts towards "invoiced", but only the ones that were
+  // actually funded have a payout and a discount to add up.
   let totalInvoiced = 0;
   let totalReceived = 0;
   let totalDiscount = 0;
+  let fundedCount = 0;
 
-  for (const payout of payouts) {
-    totalInvoiced += Number(payout.invoice_amount);
-    totalReceived += Number(payout.payout_amount);
-    totalDiscount += Number(payout.discount_amount);
+  for (const invoice of invoices) {
+    totalInvoiced += Number(invoice.invoice_amount);
+
+    if (invoice.payout_amount !== null) {
+      totalReceived += Number(invoice.payout_amount);
+      totalDiscount += Number(invoice.discount_amount);
+      fundedCount += 1;
+    }
   }
 
   if (loading) {
@@ -62,7 +84,7 @@ function PayoutHistory() {
         <div>
           <h1>Payout history</h1>
           <p className="subtitle">
-            Every invoice you have funded through Clarity.
+            Every invoice you have submitted through Clarity.
           </p>
         </div>
 
@@ -91,36 +113,50 @@ function PayoutHistory() {
         </div>
       </div>
 
+      <div className="panel">
       <table className="ledger">
         <thead>
           <tr>
             <th>Invoice</th>
+            <th>Buyer</th>
+            <th>Status</th>
             <th className="right">Invoice amount</th>
             <th className="right">Payout received</th>
             <th className="right">Discount paid</th>
             <th>Funder</th>
-            <th>Payment date</th>
+            <th>Submitted</th>
+            <th>Paid on</th>
           </tr>
         </thead>
         <tbody>
-          {payouts.map((payout) => (
-            <tr key={payout.id}>
-              <td className="invoice-number">{payout.invoice_number}</td>
-              <td className="right">{formatTaka(payout.invoice_amount)}</td>
+          {invoices.map((invoice) => (
+            <tr key={invoice.id}>
+              <td className="invoice-number">{invoice.invoice_number}</td>
+              <td>{invoice.buyer_name === null ? '—' : invoice.buyer_name}</td>
+              <td>
+                <span className={chipClass(invoice.status)}>
+                  {invoice.status}
+                </span>
+              </td>
+              <td className="right">{formatTaka(invoice.invoice_amount)}</td>
               <td className="right received">
-                {formatTaka(payout.payout_amount)}
+                {formatTaka(invoice.payout_amount)}
               </td>
               <td className="right discount">
-                {formatTaka(payout.discount_amount)}
+                {formatTaka(invoice.discount_amount)}
               </td>
-              <td>{payout.funder_name}</td>
-              <td>{formatDate(payout.payment_date)}</td>
+              <td>{invoice.funder_name === null ? '—' : invoice.funder_name}</td>
+              <td>{formatDate(invoice.submitted_date)}</td>
+              <td>{formatDate(invoice.payment_date)}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
 
-      <p className="row-count">{payouts.length} records</p>
+      <p className="row-count">
+        {invoices.length} invoices submitted, {fundedCount} funded
+      </p>
     </div>
   );
 }

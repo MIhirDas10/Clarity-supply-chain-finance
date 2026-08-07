@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "setup": "node setup.js",
-    "dev": "node index.js"
+    "setup": "node --env-file-if-exists=.env setup.js",
+    "dev": "node --env-file-if-exists=.env index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
