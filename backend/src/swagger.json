@@ -1,0 +1,76 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Clarity B2B API",
+    "version": "1.0.0",
+    "description": "API documentation for the Clarity Supply Chain Finance backend."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/api/invoices": {
+      "get": {
+        "summary": "Get all invoices",
+        "description": "Fetches a list of all invoices and their status history.",
+        "responses": {
+          "200": {
+            "description": "A JSON array of invoices"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new invoice",
+        "description": "Creates a new invoice record in the system.",
+        "responses": {
+          "201": {
+            "description": "Invoice created successfully"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}/status": {
+      "get": {
+        "summary": "Get invoice status",
+        "description": "Get the current pipeline status for a specific invoice.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update invoice status",
+        "description": "Move the invoice forward in the pipeline.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice updated successfully"
+          }
+        }
+      }
+    }
+  }
+}

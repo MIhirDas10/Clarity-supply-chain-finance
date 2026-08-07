@@ -1,0 +1,113 @@
+:root {
+  --sidebar-bg: #F8FAFC;
+  --sidebar-hover: #F1F5F9;
+  --sidebar-active: #0F172A;
+  --page-bg: #F8FAFC;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --card-shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --border: #E2E8F0;
+  --border-light: #F1F5F9;
+  --accent-green: #047857;
+  --accent-green-bg: #ECFDF5;
+  --accent-orange: #0F172A;
+  --accent-orange-bg: #F8FAFC;
+  --accent-red: #EF4444;
+  --accent-red-bg: #FEF2F2;
+  --accent-blue: #3B82F6;
+  --accent-blue-bg: #EFF6FF;
+  --accent-teal: #0D9488;
+  --accent-teal-bg: #F0FDFA;
+  --input-focus: #0F172A;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6, p {
+  margin-top: 0;
+}
+
+.dashboard-container {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+
+.dashboard-header {
+  margin-bottom: 32px;
+}
+
+.dashboard-header h1 {
+  font-size: 28px;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.dashboard-header p {
+  color: #64748b;
+}
+
+.invoice-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.invoice-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.invoice-header h2 {
+  font-size: 18px;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.invoice-header .buyer {
+  color: #475569;
+  font-size: 14px;
+}
+
+.invoice-header .amount {
+  font-size: 22px;
+  color: #059669;
+  margin-bottom: 4px;
+}
+
+.invoice-header .due-date {
+  color: #64748b;
+  font-size: 14px;
+}
