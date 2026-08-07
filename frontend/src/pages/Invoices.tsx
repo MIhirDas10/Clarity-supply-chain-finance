@@ -9,9 +9,9 @@ import {
   RefreshCw,
   Download,
 } from "lucide-react";
-import StatCard from "@/components/StatCard";
-import InvoiceForm from "@/components/InvoiceForm";
-import InvoiceTable, { type Invoice } from "@/components/InvoiceTable";
+import StatCard from "../components/StatCard";
+import InvoiceForm from "../components/InvoiceForm";
+import InvoiceTable, { type Invoice } from "../components/InvoiceTable";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
