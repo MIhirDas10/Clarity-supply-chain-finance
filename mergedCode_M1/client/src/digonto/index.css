@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+/* ─── Clarity B2B Design Tokens ──────────────────────────────────── */
+:root {
+  --sidebar-bg: #F8FAFC;
+  --sidebar-hover: #F1F5F9;
+  --sidebar-active: #0F172A;
+  --page-bg: #F8FAFC;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --card-shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --border: #E2E8F0;
+  --border-light: #F1F5F9;
+  --accent-green: #047857;
+  --accent-green-bg: #ECFDF5;
+  --accent-orange: #0F172A;
+  --accent-orange-bg: #F8FAFC;
+  --accent-red: #EF4444;
+  --accent-red-bg: #FEF2F2;
+  --accent-blue: #3B82F6;
+  --accent-blue-bg: #EFF6FF;
+  --accent-teal: #0D9488;
+  --accent-teal-bg: #F0FDFA;
+  --input-focus: #0F172A;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+@theme inline {
+  --color-background: var(--page-bg);
+  --color-foreground: var(--text-primary);
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-card: var(--card-bg);
+  --color-border: var(--border);
+  --color-border-light: var(--border-light);
+  --color-muted: var(--text-muted);
+  --color-secondary: var(--text-secondary);
+  --color-accent-green: var(--accent-green);
+  --color-accent-green-bg: var(--accent-green-bg);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-orange-bg: var(--accent-orange-bg);
+  --color-accent-red: var(--accent-red);
+  --color-accent-red-bg: var(--accent-red-bg);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-bg: var(--accent-blue-bg);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-teal-bg: var(--accent-teal-bg);
+  --color-input-focus: var(--input-focus);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Global Resets ──────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ─── Scrollbar Styling ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* ─── Input Focus Ring ───────────────────────────────────────────── */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--input-focus) !important;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+}
+
+/* ─── Skeleton Pulse Animation ───────────────────────────────────── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-skeleton {
+  animation: skeleton-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ─── Fade-in Animation ──────────────────────────────────────────── */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in-up 0.35s ease-out both;
+}
+
+/* ─── Range Slider (Discount Calculator) ────────────────────────── */
+.clarity-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  outline: none;
+  transition: background 0.15s ease;
+}
+
+.clarity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0F172A;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clarity-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.45);
+}
+
+.clarity-slider::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+}
+
+.clarity-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0F172A;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clarity-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.45);
+}
+
+.clarity-slider::-moz-range-track {
+  background: transparent;
+  border: none;
+  height: 8px;
+  border-radius: 9999px;
+}
+
+.clarity-slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.15), 0 1px 4px rgba(15, 23, 42, 0.35);
+}
+

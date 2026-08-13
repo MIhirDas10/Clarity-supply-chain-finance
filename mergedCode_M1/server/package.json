@@ -1,0 +1,21 @@
+{
+  "name": "clarity-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Clarity B2B - unified backend (invoices, payouts, pipeline)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "setup": "node setup.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.22.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
+  }
+}
