@@ -8,13 +8,13 @@ export const getInvoices = async () => {
     return response.json();
 };
 
-export const updateInvoiceStatus = async (id, newStatus, actorName, supplierPhone) => {
+export const updateInvoiceStatus = async (id, newStatus, actorName, recipientEmail, note) => {
     const response = await fetch(`${API_BASE_URL}/invoices/${id}/status`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ newStatus, actorName, supplierPhone }),
+        body: JSON.stringify({ newStatus, actorName, recipientEmail, note }),
     });
     return response.json();
 };

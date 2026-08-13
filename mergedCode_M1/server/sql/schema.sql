@@ -86,9 +86,29 @@ ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_at     TIMESTAMPTZ DEFAULT
 CREATE TABLE IF NOT EXISTS invoice_history (
   id         SERIAL PRIMARY KEY,
   invoice_id INTEGER REFERENCES invoices(id),
+  old_status TEXT,
   stage      TEXT,
+  note       TEXT,
   actor      TEXT,
   timestamp  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- In case invoice_history already exists (from an older setup), add the new columns
+ALTER TABLE invoice_history ADD COLUMN IF NOT EXISTS old_status TEXT;
+ALTER TABLE invoice_history ADD COLUMN IF NOT EXISTS note TEXT;
+
+-- ---------------------------------------------------------------------------
+-- In-App Notification Center
+-- Stores records of important events for users.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS notifications (
+  id           SERIAL PRIMARY KEY,
+  recipient    TEXT NOT NULL,
+  message      TEXT NOT NULL,
+  invoice_link TEXT,
+  type         TEXT,
+  is_read      BOOLEAN DEFAULT FALSE,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ---------------------------------------------------------------------------

@@ -1,7 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PipelineTracker from './PipelineTracker';
+import { updateInvoiceStatus } from '../../services/api';
+
+const stages = ['Submitted', 'Buyer Confirmed', 'Funded', 'Payout Initiated', 'Completed'];
 
 const InvoiceCard = ({ invoice }) => {
+    const [updating, setUpdating] = useState(false);
+
+    // Compute the logical next stage
+    const currentIndex = stages.indexOf(invoice.currentStage);
+    const nextStage = currentIndex >= 0 && currentIndex < stages.length - 1 ? stages[currentIndex + 1] : null;
+
+    const handleAdvance = async () => {
+        if (!nextStage) return;
+        setUpdating(true);
+        try {
+            await updateInvoiceStatus(invoice.id, nextStage, 'Admin', 'supplier@example.com');
+            // Reload the page to fetch the new pipeline state
+            window.location.reload();
+        } catch (error) {
+            console.error('Failed to update status', error);
+            alert('Failed to update status: ' + error.message);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
     return (
         <div style={{
             background: 'var(--card-bg)',
@@ -32,6 +56,27 @@ const InvoiceCard = ({ invoice }) => {
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                         Due: {new Date(invoice.dueDate).toLocaleDateString()}
                     </div>
+                    
+                    {nextStage && (
+                        <button 
+                            onClick={handleAdvance}
+                            disabled={updating}
+                            style={{
+                                marginTop: '12px',
+                                padding: '6px 12px',
+                                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                cursor: updating ? 'not-allowed' : 'pointer',
+                                opacity: updating ? 0.7 : 1
+                            }}
+                        >
+                            {updating ? 'Advancing...' : `Advance to ${nextStage}`}
+                        </button>
+                    )}
                 </div>
             </div>
 
