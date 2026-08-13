@@ -91,23 +91,34 @@ router.post('/invoices', async (req, res) => {
       ? Number(discounted_amount)
       : Math.round(amount * (1 - DISCOUNT_RATE) * 100) / 100;
 
-    // The invoice is submitted by the supplier and enters the pipeline at 'Submitted'.
-    // funder_id and payout_amount stay empty until confirmed and funded on the marketplace.
+    // Match the invoice to a funder straight away, so the supplier can see who
+    // is backing it and exactly what they will be paid.
+    const funders = await pool.query('SELECT id FROM funders ORDER BY random() LIMIT 1');
+    const funderId = funders.rows.length > 0 ? funders.rows[0].id : null;
+
+    // The invoice is now funded: it has a funder, a payout and a discount.
+    // payment_date stays empty until the money actually lands.
+    //
+    // TEMPORARY: "number" and "amount" are another member's versions of
+    // invoice_number and invoice_amount. They are NOT NULL on the shared
+    // database, so we have to fill them in as well or the insert is rejected.
+    // Delete them once the group agrees on a single set of column names.
     const result = await pool.query(
       `INSERT INTO invoices
          (supplier_id, buyer_name, invoice_number, invoice_amount,
           due_date, submitted_date, status, file_name,
           funder_id, payout_amount,
           number, amount)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'Submitted', $6,
-               NULL, NULL,
-               $7, $8)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'Funded', $6,
+               $7, $8,
+               $9, $10)
        RETURNING id, invoice_number`,
       [
         String(supplier_id || 1),  // supplier_id is TEXT so Digonta's "sup-420" fits too
         buyer_name, invoice_number, amount, due_date, document,
-        invoice_number,   // $7  -> "number", their column, holds the same value
-        String(amount),   // $8  -> "amount", their column, stores it as text
+        funderId, payout,
+        invoice_number,   // $9  -> "number", their column, holds the same value
+        String(amount),   // $10 -> "amount", their column, stores it as text
       ]
     );
 

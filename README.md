@@ -1,104 +1,116 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-# Clarity B2B - Supply Chain Finance Portal
+# Clarity — B2B Invoice Discounting & Supply Chain Finance Platform
 
-Clarity is a modern, premium B2B Supply Chain Finance platform designed to help suppliers track their invoice statuses, request early payment discounts, and manage cash flow.
+A single, unified codebase that merges the work of all four group members into one
+running system. It has **one base** with two folders:
 
-## 🚀 Features
+- **`client/`** — the React (Vite) frontend, one app with one sidebar.
+- **`server/`** — the Express backend, one API on port 5000.
 
-- **Invoice Pipeline Tracker:** Real-time visual tracking of invoices from "Submitted" to "Completed".
-- **Dynamic Dashboard:** View overall cash flow, payout history, and pending invoices.
-- **Smart Data Synchronization:** Connects live to a Supabase PostgreSQL backend.
-- **Premium UI/UX:** Built with React, featuring a highly polished, minimalist SaaS aesthetic.
+> Course: CSE471 — System Analysis and Design · Group 4 · Lab Section 9
 
-## 📁 Project Structure
+---
 
-This is a monorepo containing both the frontend client and the backend server.
+## What each member built (all live in the one app)
 
-- `/frontend` - The React (Vite) client application.
-- `/backend` - The Express.js Node API server.
+| Member | Feature | Where in the code | API it uses |
+|--------|---------|-------------------|-------------|
+| **Mihir** | Invoice Status **Pipeline Tracker** | `client/src/mihir/` | `GET/PATCH /api/pipeline/invoices` (Supabase) |
+| **Apurba** | Invoice **Upload (OCR)**, **My Invoices**, **Payout History** + CSV | `client/src/apurba/` | `GET/POST /api/invoices`, `GET /api/payouts` (pg) |
+| **Digonto** | Real-Time **Discount Rate Calculator** | `client/src/digonto/` | `GET/POST /api/invoices` (pg) |
 
-## 🛠️ Tech Stack
+Each member's original source lives in its **own subfolder** and was kept intact.
+Only the "glue" that joins them (the sidebar/router, API base URLs, and a merged
+database schema) was added.
 
-**Frontend:**
-- React 19
-- Vite
-- Lucide React (Icons)
-- CSS (Custom B2B Design System)
+---
 
-**Backend:**
-- Node.js & Express
-- Supabase (PostgreSQL)
-- Swagger UI (API Documentation)
+## How it fits together
 
-## 🚦 Getting Started
-
-### Prerequisites
-- Node.js (v18+)
-- npm
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/MIhirDas10/Clarity-supply-chain-finance.git
-   cd Clarity-supply-chain-finance
-   ```
-
-2. **Setup Backend**
-   ```bash
-   cd backend
-   npm install
-   # Create a .env file with your SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
-   npm run dev
-   ```
-   *The backend will run on `http://localhost:5000`. You can view the API documentation at `http://localhost:5000/api-docs`.*
-
-3. **Setup Frontend**
-   ```bash
-   cd ../frontend
-   npm install
-   npm run dev
-   ```
-   *The frontend will run on `http://localhost:5174` (or similar).*
-
-## 🤝 Contributing
-1. Create a new branch (`git checkout -b feature/your-feature`)
-2. Commit your changes
-3. Push to the branch
-4. Open a Pull Request
-=======
-# Clarity-B2B Invoice Discounting and Supply Chain Finance Platform
-
-Clarity is a web-based supply chain finance platform designed to solve the cash-flow crisis faced by Bangladeshi SMEs (local suppliers). It connects three types of verified users - Suppliers, Buyers, and Funders - on a single digital marketplace. 
-
-## Key Features
-- **Suppliers:** Upload confirmed B2B invoices and receive early payments (up to 97% within 72 hours). Includes OCR parsing, discount rate calculator, cash flow forecasting, and savings tracker.
-- **Buyers:** Confirm or dispute invoices digitally, manage upcoming payment calendars, and dynamically discount their own payables with surplus cash.
-- **Funders:** Browse a verified invoice marketplace to fund receivables for short-term annualized returns, with risk-rating and auto-invest rules.
-- **Admin:** Handles KYB verification, dispute resolution, compliance reports, and fee management.
-
-## Tech Stack
-- **Framework:** Next.js (App Router) / MERN Equivalent
-- **Styling:** Tailwind CSS
-- **Database & ORM:** PostgreSQL + Prisma
-- **Key APIs:** Cloudinary (Storage), Tesseract.js (OCR), SSL Wireless (SMS), Nodemailer (Emails), bKash (Payments)
-
-## Getting Started
-
-First, install dependencies and generate Prisma types:
-```bash
-npm install
-npx prisma generate
+```
+                 ┌─────────────────────────────────────────────┐
+   Browser ────► │  client/  (Vite React, one sidebar/router)  │
+                 └───────────────┬─────────────────────────────┘
+                                 │  /api/*  (Vite dev proxy → :5000)
+                 ┌───────────────▼─────────────────────────────┐
+                 │  server/  (one Express app, port 5000)       │
+                 │   /api/invoices, /api/payouts   → pg         │
+                 │   /api/pipeline/invoices        → Supabase   │
+                 └───────────────┬─────────────────────────────┘
+                                 │
+                 ┌───────────────▼─────────────────────────────┐
+                 │  One Supabase PostgreSQL database            │
+                 │  invoices (+ number/amount/status synced by  │
+                 │  a trigger) · invoice_history · funders ...  │
+                 └─────────────────────────────────────────────┘
 ```
 
-Then, run the development server:
+Both data layers (raw `pg` and the Supabase client) point at the **same** Supabase
+database, so every feature reads and writes the same invoices. A database trigger
+keeps the different column names the members used (`invoice_number`/`number`,
+`invoice_amount`/`amount`, `status`/`current_stage`) in sync automatically.
+
+---
+
+## Running it
+
+### 1. Prerequisites
+- Node.js v18+
+- A Supabase project (free tier is fine)
+
+### 2. Configure the server
 ```bash
-npm run dev
+cp server/.env.example server/.env
+```
+Then edit `server/.env` and fill in:
+- `DATABASE_URL` — Supabase → Project Settings → Database → Connection string (Session pooler)
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — Supabase → Project Settings → API
+
+### 3. Install everything
+```bash
+npm run install:all
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
->>>>>>> module1-integration
-=======
+### 4. Create the tables + sample data (run once)
+```bash
+npm run setup
+```
 
->>>>>>> 7a282f768bceb3cb2eadb6b7f9169eaff865cfb3
+### 5. Start the server and client (two terminals)
+The server and client run separately. Open two terminals in this folder:
+
+```bash
+npm run dev:server
+```
+```bash
+npm run dev:client
+```
+- Client: http://localhost:5173
+- API: http://localhost:5000  ·  API docs: http://localhost:5000/api-docs
+
+---
+
+## Folder map
+
+```
+Clarity/
+├── client/                 # one React app
+│   └── src/
+│       ├── App.tsx         # router + layout (glue)
+│       ├── main.tsx        # entry + shared CSS (glue)
+│       ├── components/     # unified Sidebar + Header (glue)
+│       ├── digonto/        # Digonto's Discount Calculator (InvoiceForm + page)
+│       ├── mihir/          # Mihir's Pipeline Tracker
+│       └── apurba/         # Apurba's Upload / My Invoices / Payout History
+├── server/                 # one Express API
+│   ├── index.js            # entry: mounts every route (glue)
+│   ├── routes/             # invoiceRoutes (Apurba) + pipelineRoutes (Mihir)
+│   ├── controllers/        # Mihir's pipeline controller
+│   ├── config/ services/   # Mihir's Supabase client + SMS stub
+│   ├── db.js               # Apurba's pg pool
+│   ├── sql/                # schema.sql + seed.sql
+│   └── setup.js            # creates tables and loads sample data
+└── docs/                   # assignment (functional requirements) doc
+```
+
+Each member's feature code lives in its own subfolder. The full original,
+untouched branches are kept separately outside this project in `../our code/`.

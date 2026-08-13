@@ -8,7 +8,6 @@ import InvoiceUpload from "./apurba/InvoiceUpload";        // Apurba - OCR Invoi
 import MyInvoices from "./apurba/MyInvoices";              // Apurba - My Invoices
 import PayoutHistory from "./apurba/PayoutHistory";        // Apurba - Payout History
 import InvoicesPage from "./digonto/pages/Invoices";       // Digonto - Discount Calculator
-import CashFlowForecast from "./ameet/CashFlowForecast";     // Ameet   - Cash Flow Forecast Engine
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -40,6 +39,8 @@ function Placeholder({ name }: { name: string }) {
   );
 }
 
+import CashFlow from "./ameet/CashFlowForecast";             // Ameet  - Cash Flow Forecast
+
 function App() {
   return (
     <Router>
@@ -51,7 +52,7 @@ function App() {
           <Route path="/discount" element={<InvoicesPage />} />
           <Route path="/my-invoices" element={<Content><MyInvoices /></Content>} />
           <Route path="/payouts" element={<Content><PayoutHistory /></Content>} />
-          <Route path="/cashflow" element={<CashFlowForecast />} />
+          <Route path="/cashflow" element={<Content><CashFlow /></Content>} />
           <Route path="/notifications" element={<Placeholder name="Notifications" />} />
           <Route path="/settings" element={<Placeholder name="Settings" />} />
           <Route path="*" element={<Navigate to="/pipeline" replace />} />

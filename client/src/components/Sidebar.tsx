@@ -18,7 +18,7 @@ const navItems = [
   { label: "My Invoices", to: "/my-invoices", icon: FileText, built: true },       // Apurba
   { label: "Invoice Pipeline", to: "/pipeline", icon: Activity, built: true },     // Mihir
   { label: "Payout History", to: "/payouts", icon: Clock, built: true },           // Apurba
-  { label: "Cash Flow", to: "/cashflow", icon: TrendingUp, built: true },            // Ameet
+  { label: "Cash Flow", to: "/cashflow", icon: TrendingUp, built: false },
   { label: "Notifications", to: "/notifications", icon: Bell, built: false },
   { label: "Settings", to: "/settings", icon: Settings, built: false },
 ];

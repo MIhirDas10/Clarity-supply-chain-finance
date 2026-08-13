@@ -16,7 +16,12 @@ export const updateInvoiceStatus = async (id, newStatus, actorName, recipientEma
         },
         body: JSON.stringify({ newStatus, actorName, recipientEmail, note }),
     });
-    return response.json();
+    const text = await response.text();
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        throw new Error(`Server returned raw text instead of JSON: ${text}`);
+    }
 };
 
 export const createInvoice = async (invoiceData) => {
