@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Clarity B2B - Supply Chain Finance Portal
 
 Clarity is a modern, premium B2B Supply Chain Finance platform designed to help suppliers track their invoice statuses, request early payment discounts, and manage cash flow.
@@ -98,3 +99,6 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 >>>>>>> module1-integration
+=======
+
+>>>>>>> 7a282f768bceb3cb2eadb6b7f9169eaff865cfb3
