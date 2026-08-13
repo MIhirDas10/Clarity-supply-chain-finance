@@ -44,9 +44,16 @@ FROM (VALUES
   -- money agreed, payment not sent yet
   (1, 'Nova Retail Group', 'INV-2026-1061', 1120000.00, DATE '2026-11-03', DATE '2026-08-05', 'Payout Initiated', 2,    1086400.00, NULL),
   (1, 'Envoy Textiles',    'INV-2026-1063',  780000.00, DATE '2026-11-04', DATE '2026-08-06', 'Funded',           4,     756600.00, NULL),
-
   (1, 'Beximco Pharma',    'INV-2026-1065', 1540000.00, DATE '2026-11-04', DATE '2026-08-06', 'Funded',           1,    1493800.00, NULL),
   (1, 'Pran-RFL Group',    'INV-2026-1067',  640000.00, DATE '2026-11-05', DATE '2026-08-07', 'Funded',           3,     620800.00, NULL),
+
+  -- 30-day horizon active & buyer confirmed invoices (Aug 20 - Sep 12, 2026)
+  (1, 'Apex Footwear Ltd', 'INV-2026-1070',  950000.00, DATE '2026-08-28', DATE '2026-08-10', 'Buyer Confirmed', NULL,     921500.00, NULL),
+  (1, 'Square Group',      'INV-2026-1072', 1800000.00, DATE '2026-09-08', DATE '2026-08-11', 'Funded',           2,    1746000.00, NULL),
+
+  -- 60-day horizon active & buyer confirmed invoices (Sep 15 - Oct 12, 2026)
+  (1, 'Beximco Pharma',    'INV-2026-1074', 1200000.00, DATE '2026-09-25', DATE '2026-08-12', 'Buyer Confirmed', NULL,    1164000.00, NULL),
+  (1, 'Pran-RFL Group',    'INV-2026-1076', 2100000.00, DATE '2026-10-05', DATE '2026-08-13', 'Submitted',       NULL,    2037000.00, NULL),
 
   -- A disputed invoice is frozen and taken off the funder marketplace, so it
   -- genuinely has no funder and no payout. This is the row that proves the

@@ -18,12 +18,13 @@ const cors = require('cors');
 
 const invoiceRoutes = require('./routes/invoiceRoutes');   // Apurba (pg)
 const pipelineRoutes = require('./routes/pipelineRoutes');  // Mihir (Supabase)
+const cashflowRoutes = require('./routes/cashflowRoutes');  // Ameet (Cash Flow Forecast Engine)
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 app.use(cors());          // lets the React client (Vite dev server) call this API
 app.use(express.json());  // parse JSON request bodies
@@ -33,6 +34,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Apurba - invoice upload/list + payout history
 app.use('/api', invoiceRoutes);
+
+// Ameet - Cash Flow Forecast Engine
+app.use('/api/cashflow', cashflowRoutes);
 
 // Mihir - invoice status pipeline (kept under its own prefix to avoid clashing
 // with Apurba's /api/invoices). The client calls /api/pipeline/invoices...
