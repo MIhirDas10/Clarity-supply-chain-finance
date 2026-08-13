@@ -65,6 +65,26 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "newStatus": {
+                    "type": "string",
+                    "example": "Funded"
+                  },
+                  "supplierPhone": {
+                    "type": "string",
+                    "example": "+8801711223344"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Invoice updated successfully"

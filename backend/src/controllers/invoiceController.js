@@ -72,10 +72,36 @@ exports.getInvoiceStatus = async (req, res) => {
 
 // updating invoice status (the pipeline)
 exports.updateInvoiceStatus = async (req, res) => {
-    const { id } = req.params;
-    const { newStatus, actorName, supplierPhone } = req.body;
-    await smsService.sendStatusUpdateSMS(supplierPhone, newStatus);
-    res.status(200).json({ message: `Invoice ${id} status updated to ${newStatus}` });
+    try {
+        const { id } = req.params;
+        const { newStatus, actorName, supplierPhone } = req.body;
+
+        // Update the invoice in Supabase (updating both possible columns to be safe)
+        const { error: updateError } = await supabase
+            .from('invoices')
+            .update({ current_stage: newStatus, status: newStatus })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+
+        // Record the timestamp and actor in the history table
+        const { error: historyError } = await supabase
+            .from('invoice_history')
+            .insert([{
+                invoice_id: id,
+                stage: newStatus,
+                actor: actorName || 'System Admin'
+            }]);
+
+        if (historyError) throw historyError;
+
+        // Send SMS
+        await smsService.sendStatusUpdateSMS(supplierPhone, newStatus);
+        
+        res.status(200).json({ message: `Invoice ${id} status updated to ${newStatus}` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 // creating new invoice
