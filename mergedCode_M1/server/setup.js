@@ -9,7 +9,7 @@
 // to run more than once: it never drops a table, and it only loads the
 // sample data when the invoices table is completely empty.
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const fs = require('fs');
 const path = require('path');

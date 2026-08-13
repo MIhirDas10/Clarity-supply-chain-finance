@@ -11,7 +11,7 @@
 // Both data layers (raw `pg` and the Supabase client) talk to the SAME Supabase
 // PostgreSQL database, so every feature reads and writes the same invoices.
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
