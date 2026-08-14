@@ -1,0 +1,177 @@
+﻿CSE471: System Analysis and Design Assignment on Functional Requirements
+Proposed Project Title: Clarity â€“ B2B Invoice Discounting andSupply Chain Finance Platform
+Group No: 4, CSE471 Lab Section: 9, [Summer] [2026]
+SL
+ID
+Name
+1
+22201633
+DigontaDas
+2
+22299480
+MihirDas
+3
+23101012
+ApurbaRoy
+4
+22201869
+AmeetFaisal
+SubmissionDate:
+ProjectOverview
+Clarity is a web-based supply chain finance platform built to solve a measurable, documented cash-flow crisis faced by Bangladeshi SMEs â€“ typically local suppliers of goods to large corporations. These suppliers wait 90 to 120 days to receive paymenton confirmed invoices, while borrowing from informal moneylenders at over 31% annually just to keep operations running. The platform connects three types ofverified users â€“ Suppliers, Buyers, and Funders â€“ on a single digital marketplace. Suppliersuploadconfirmedinvoicesandreceiveupto97%oftheinvoicevalue within 72 hours at a small discount. Buyers confirm invoices digitally and manage their payables without disrupting their own cash flow. Funders (banks, NBFIs, or institutional investors) browse verified invoices and earn 15 to 20% annualizedreturns on short-term, asset-backed receivables. Clarity earns a 0.5 to 1% facilitation fee on every funded invoice, creating a fully self-sustaining business model.
+TechStack
+Language:TypeScript,JavaScript
+Framework:Next.js(AppRouter)â€“Reactfront-endwithNode.jsserverlogicviaNext.js Route Handlers / API routes
+Styling:TailwindCSS
+Database:Supabase(managedPostgreSQL)
+DataAccess:Supabaseclient+SQL(noORM/noPrisma)
+Deployment:Vercel(Next.jsapplicationandAPIroutes)
+ExternalAPIs:
+CloudinaryAPI:securePDFandimagestorageofuploadedinvoices.
+Tesseract.js(OCR):automaticparsingofinvoicefieldsfromuploadeddocuments.
+Nodemailer(GmailSMTP):emailalertsandtransactionreceiptsforallroles, paired with the in-app Notification Center.
+bKashMerchantAPI:funderdeposits,invoicefunding,andsettlement payouts.
+GoogleCalendarAPI:syncing invoice due-date and repayment reminders into buyer and funder calendars.
+UserRoles
+Supplier: The primary user and main beneficiary. Suppliers register theirbusiness, complete KYB verification, and upload confirmed B2B invoices to receive early payment. They track invoice status, view payout history, monitor cash-flow forecasts, and see cumulative savings versus informal lending rates.
+Buyer: A verified corporate entity â€“ typically a large garment factory, FMCG company, or retailer â€“ that has received goods and owes payment. Buyers confirm or dispute invoices digitally, manage their payment calendar, and can offer early payment from their own surplus cash through dynamic discounting.
+Funder: A bank, NBFI, or accredited institutional investor that provides thecapitaltofundinvoices.Fundersbrowsetheverifiedmarketplace,setautomated
+investment rules, monitor their portfolio, and receive repayment on the invoice due date.
+Admin: The platform superuser responsible for reviewing KYB applications, resolving disputes, monitoring transaction activity, generating Bangladesh Bank compliance reports, and configuring platform fee parameters.
+WorkDivisionSummary
+The 16 graded features are distributed evenly â€“ four per member. Each member owns exactlyonefeaturedemonstratedinModule1(Lab5),oneinModule2(Lab6),and twoinModule3(Lab7),andeachmemberintegratesatleastoneexternalAPIasa feature.Sign-on,sign-up,logout,roleandprofilemanagement,andadminactivities aretreatedassharedcommonworkflowsandarenotcountedasgradedfeatures.
+SL / Member
+Module1(Lab
+5)
+Module2(Lab
+6)
+Module3(Lab7)
+External API
+1 â€“ Digonta Das
+Real-Time DiscountRate Calculator
+Invoice Confirmation & Digital Acknowledgment
+Invoice MarketplacewithFirst
+-Come-First-Funded Locking
+RiskRatingEngine (A/B/C)
+Cloudinary
+2 â€“ Mihir Das
+Invoice Status Pipeline+In-App Notification Center & Email Engine
+Supplier Health& Distress-Signal Analytics
+InvestorPortfolio & Returns Analytics
+BuyerCredit ScoringEngine
+Nodemailer(in-app + email)
+3â€“Apurba Roy
+InvoiceUpload with OCR + Cloud Storage
+Dispute Filing & Invoice Freeze
+Auto-InvestRules Engine
+Funder Deposit & Invoice Funding
+(bKash)
+bKash Merchant API
+4â€“Ameet Faisal
+Cash Flow ForecastEngine
+Dynamic Discounting (Buyer-Funded)
+Repayment & SettlementEngine
+Due-Date & Repayment Calendar
+Sync
+Google Calendar API
+SharedServices&FeatureIntegrationMap
+Several features are shared services that other members call rather than re-build.This map fixes ownership so there is no overlap or confusion: each service has exactly one owner, and everyone else integrates with it through that ownerâ€™s API.
+SharedService
+Owner
+Whousesit&howtheyconnect
+Invoice State Machine(5-stage pipeline)
+Mihir(SL 2)
+Confirmation (SL 1), Funding & Auto-Invest (SL 3), Payout, Settlement (SL 4) and Dispute/Freeze (SL 3) advanceaninvoiceonlythroughthisguarded transitionAPIâ€“nobodywritesinvoicestatusdirectly.
+Notification Center + Email Engine
+Mihir(SL 2)
+Everyfeaturethatmustalertauserâ€“Confirmation (SL 1), Dispute (SL 3), Funding (SL 3), Dynamic Discounting (SL 4), Settlement (SL 4), Calendar reminders (SL 4) â€“ publishes an event here. No other featuresendsitsownemail.
+BuyerCredit Score
+Mihir(SL 2)
+Read by the Discount Rate Calculator (SL 3) and the Risk Rating Engine (SL 1) to price and rate each invoice.
+Marketplace Claim-Lock
+Digonta (SL 1)
+Manual funding and the Auto-Invest Engine (SL 3) both commit capital through this row-level lock; no invoice is ever funded outside it.
+Funder Wallet Ledger(bKash)
+Apurba (SL 3)
+The Settlement Engine (SL 4) moves repayments, funder returns, and the platform fee through this reconciled ledger.
+Invoice Due / Maturity Dates
+Ameet(SL 4)
+Produced by the Settlement Engine (SL 4) and pushed into buyer/funder Google Calendars by the Calendar Sync (SL 4).
+FunctionalRequirements
+Common Workflows (implemented collaboratively â€“ not graded as features)
+SL
+CommonWorkflow
+1
+Multi-RoleRegistration,Login&KYBVerification:Usersregisterby selecting a role (Supplier, Buyer, or Funder) and providing business name, phone number, and email. Suppliers and Buyers complete a Know Your Business step by uploading trade license, TIN certificate, and bank account details. An admin reviews and approves or rejects the application within 48 hours. Approved userslog in via phone OTP and reach their role-specific dashboard; unapproved users cannot initiate any transaction.
+2
+AdminPanel&PlatformGovernance: An authorized administrator signs into a dedicated panel to review pending KYB applications and documents, approve or reject registrations, suspend accounts, adjust platform fee rates, issue dispute-resolution decisions, generate monthly Bangladesh Bank compliance reports, and monitor real-time platform activity including total invoice volume, funded amounts, and fraud flags.
+Module1(Lab5)â€“SupplierOnboarding&InvoiceOrigination
+Member
+FeatureDescription
+Apurba Roy (SL 3)
+InvoiceUploadwithOCRParsing&CloudStorage
+SuppliersuploadaPDForphotographofaconfirmedB2Binvoice.The fileisstoredsecurelythroughtheCloudinaryAPIandTesseract.jsOCR extractsthebuyername,invoicenumber,totalamount,andduedateto pre-fill the submission form. The system validates the extracted values (numeric and date format checks) and screens the invoice number against existing records to block duplicate submissions before the supplierconfirmsâ€“ eliminatingmanualentryandpreventingthesame invoice from being financed twice.
+External API integration: Cloudinary (secure invoice document storage)
+Member
+FeatureDescription
+Mihir Das (SL 2)
+Invoice Status Pipeline with In-App Notification Center & Email Engine
+Everyinvoicerunsthroughanenforcedfive-stagestatemachine: Submitted Â» Buyer Confirmed Â» Funded Â» Payout Initiated Â» Completed.The backend rejects invalid transitions and stamps each stage with a timestampandtheactinguser.Oneveryvalidadvanceâ€“andforany otheralert-worthyeventraisedbytheteamâ€™sfeaturesâ€“theenginewritesarecordtotherecipientâ€™sin-appNotificationCenter(abell panel on their profile carrying a message, a deep link to the invoice, and read/unread state) and sends a matching templated email through Nodemailer. This is the platformâ€™s single notification service: no otherfeaturesendsitsownemail,soeveryalertisconsistent,logged,and centrally owned. Key events include invoice confirmed, funded, payout initiated/completed,disputeraisedorresolved,andrepaymentreceived.
+External API integration: Nodemailer/ Gmail SMTP â€” in-appNotificationCenter+emailforallroles
+Digonta Das (SL 1)
+Real-TimeDiscountRateCalculator
+Before submitting an invoice for early funding, the supplier chooses a payment horizon (same-day to 30 days) on an interactive slider and the system computes the exact payout from the platform pricing formula â€“ payout=amountÃ—(1âˆ’annualRateÃ—days/365)â€“whereannualRate is derived from the buyerâ€™s live credit/risk band. The final figure is recomputed server-side at confirmation so the quoted and booked amountsalwaysmatch,lettingthesupplierdecidewithfullinformation.
+Ameet Faisal (SL 4)
+CashFlowForecastEngine
+Usingallactiveandconfirmedinvoicesintheaccount,theengine builds a 30-, 60-, and 90-day forward cash-flow timeline, bucketing expected inflows onto their payout or maturity dates. For each invoice it branches between the discounted early-payout amount (if early fundingis accepted) and the full-term amount (if held to maturity), producing a projected balance curve owners can use to plan payroll, procurement,and operating expenses instead of guessing.
+Module2(Lab6)â€“BuyerConfirmation&PayablesManagement
+Member
+FeatureDescription
+InvoiceConfirmation&DigitalAcknowledgmentWorkflow
+Digonta Das (SL 1)
+Whenasuppliercitesabuyer,thatbuyerreviewstheinvoicedetails and confirms or disputes with a single action. A confirmation writes an immutable,timestampeddigitalacknowledgmentrecordingalegally bindingpaymentobligationandtransitionstheinvoicetoâ€˜Buyer Confirmedâ€™â€“thegatethatmakesiteligibleforthefundermarketplace. Noinvoicecanbefinanceduntilthisauthoritativeconfirmationexists.
+Member
+FeatureDescription
+Mihir Das (SL 2)
+SupplierHealth&Distress-SignalAnalytics
+Foreachofabuyerâ€™sactivesuppliers,thesystemcomputesahealth score from behavioral signals â€“ frequency of early-discount requests,averageaccepteddiscountrate,andcountofopendisputes.Aweighted ruleflagssupplierswhosehigh-frequency,high-discountpattern indicatesfinancialdistress,givingthebuyeranearlywarningof supply-chain fragility before a supplier becomes unable to deliver and disrupts production.
+Apurba Roy (SL 3)
+DisputeFiling&InvoiceFreeze
+Abuyerwhobelievesaninvoiceisinaccurateorgoodswerenot delivered can flag it as disputed with written notes and supporting documents. The system atomically transitions the invoice to a Frozen state,immediatelywithdrawingitfromthemarketplaceandblocking any concurrent funding action, then routes both partiesâ€™ evidence to admin. On resolution the invoice is either released for funding or voided permanently, with every step logged.
+Ameet Faisal (SL 4)
+DynamicDiscounting(Buyer-FundedEarlyPayment)
+Whenabuyerholdssurpluscash,theyselecteligibleconfirmedinvoices andsetanearly-paymentdiscountrate;theplatformoffersittothe relevant suppliers, who accept or decline. On acceptance the enginecomputesthebuyerâ€™sreturn,thesupplierâ€™spayout,andareduced platformfacilitationfee,thensettlestheearlypaymentdirectlyâ€“ bypassinganythird-partyfunderwhilethebuyerearnsareturnonidle cash.
+Module3(Lab7)â€“FundingMarketplace,Risk&Settlement
+Member
+FeatureDescription
+Digonta Das (SL 1)
+(3)InvoiceMarketplacewithFirst-Come-First-FundedLocking Fundersbrowsealive,filterablemarketplaceofbuyer-confirmed invoicesshowingbuyernameandcreditrating,amount,maturitydate,
+expectedannualizedreturn,andriskband.Fundinganinvoiceexecutes
+insideanatomictransactionwitharow-levellock,soexactlyonefunder can claim each receivable â€“ preventing double-funding under concurrent requests and guaranteeing clean, unambiguous ownership of every invoice.
+Digonta Das (SL 1)
+(4)RiskRatingEngine(A/B/C)
+Each buyer-confirmed invoice is automatically assigned an A, B, or C rating from a weighted score over the buyerâ€™s on-platform payment timeliness,BGMEA/BTMAregistrationstatus,invoiceamountrelative tothebuyerâ€™saveragetransactionvolume,andplatformaccountage. The computed rating is stored on every listing and directly feeds the suggested discount rate quoted to the supplier at submission.
+Member
+FeatureDescription
+Mihir Das (SL 2)
+(3)InvestorPortfolio&ReturnsAnalytics
+The engine computes each funderâ€™s deployed capital, projected versus realized annualized return (an annualized / XIRR-style calculation over the funderâ€™s actual funding and repayment cash flows), and a maturity schedule that drives reinvestment timing. Every figure is derived fromreal transaction events rather than stored snapshots, so the portfolio updates as invoices fund and repay.
+Mihir Das (SL 2)
+(4)BuyerCreditScoringEngine
+The platform maintains a continuously updated internal credit score foreverybuyer,recomputedoneachnewtransactioneventfromaverage days-to-pay on past funded invoices, the ratio of confirmed to disputed invoices, BGMEA/BTMA membership status, and total platform volume.Thescoredirectlysetsthediscountratequotedtosupplierscitingthat buyerâ€“higher-scoringbuyersunlockcheaperfinancingandmore attractive funder returns.
+Apurba Roy (SL 3)
+(3)Auto-InvestRulesEngine
+Funders who want to deploy capital without reviewing each invoiceconfigure automated rules specifying minimum and maximum invoice amount, required risk band, preferred sector, and maximum capital per invoice.Whenanewmarketplaceinvoicematchesanactiverule,the engine automatically commits the funderâ€™s capital â€“ checking available balanceandhonoringthemarketplacelockâ€“soeligibleinvoicesare nevermissedandcapitalisdeployedthemomentitqualifies.
+Apurba Roy (SL 3)
+(4)FunderDeposit&InvoiceFundingviabKash
+Funders top up their platform wallet through the bKash Merchant API.Whentheyfundaninvoice,manuallyorviaauto-invest,thesystem verifiesthepayment,debitsthewalletledger,recordsthereceivable against that funder, and initiates the supplier payout â€“ maintaining a reconcileddouble-entrytrailofeverydepositanddisbursement.
+External API integration: bKash Merchant API (deposits & funding payouts)
+Ameet Faisal (SL 4)
+(3)Repayment&SettlementEngine
+Ontheinvoiceduedatetheenginetracksthebuyerâ€™srepaymentand thenrunsasettlementwaterfallâ€“returningprincipalplustheagreed returntothefunder,deductingthe0.5to1%platformfacilitationfee, andclosingtheinvoice.Overdueinvoicesareescalatedandreconciled sonoreceivableisleftunsettledandeverypartyâ€™sbalancestays consistent.Repayment,overdue,andsettlementoutcomesarepublishedtotheNotificationEngine(SL2)ratherthanemaileddirectly, andthedueandmaturitydatesthisenginemanagesfeedtheCalendar Sync (feature 4 below).
+Member
+FeatureDescription
+(4)Due-Date&RepaymentCalendarSync(GoogleCalendar)
+Ameet Faisal (SL 4)
+BuyersandfundersconnecttheirGoogleCalendaronceviaOAuth.When an invoice is confirmed and funded, the engine creates calendarevents for its key money dates â€“ the buyerâ€™s payment-due date and the funderâ€™sexpectedmaturity/repaymentdateâ€“eachwithautomatic7-day and1-dayreminders.Eventsareupdatedorremovedautomatically whenaninvoiceisrepaidearly,frozeninadispute,orvoided,keeping everycalendarintwo-wayagreementwiththeinvoiceâ€™slivestate.By placingobligationsdirectlyintotreasuryandfundercalendarsit reduces overdue repayments, which lifts the on-time settlement rate the SettlementEnginedependson.
+External API integration: Google Calendar API (OAuth2 event sync with reminders)

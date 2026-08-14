@@ -8,7 +8,7 @@ import {
   Download,
 } from 'lucide-react';
 
-const API_URL = ''; // same-origin: Vite proxy forwards /api to the server (port 5000)
+const API_URL = ''; // same-origin: the Vite proxy forwards /api to the server
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -151,8 +151,6 @@ function MyInvoices() {
           colour="teal"
         />
       </div>
-
-
 
       <div className="panel">
         <div className="panel-head">

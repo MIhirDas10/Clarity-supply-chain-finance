@@ -1,22 +1,16 @@
 "use client";
 
-import { useState, useMemo, type FormEvent } from "react";
+import { useState, useMemo } from "react";
 import { Upload, Loader2, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 
-interface InvoiceFormProps {
-  onSuccess: () => void;
+const DISCOUNT_RATE_30D = 0.025;
+const MAX_DISCOUNT_DAYS = 30;
+
+function formatBDT(value) {
+  return `৳${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
-interface FormData {
-  supplier_id: string;
-  buyer_name: string;
-  invoice_number: string;
-  amount: string;
-  due_date: string;
-  file_url: string;
-}
-
-const initialForm: FormData = {
+const initialForm = {
   supplier_id: "",
   buyer_name: "",
   invoice_number: "",
@@ -25,29 +19,17 @@ const initialForm: FormData = {
   file_url: "",
 };
 
-/** Platform discount rate: 2.5% for 30 days, linearly prorated */
-const DISCOUNT_RATE_30D = 0.025;
-const MAX_DISCOUNT_DAYS = 30;
-
-function formatBDT(value: number): string {
-  return `৳${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-}
-
-export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
-  const [form, setForm] = useState<FormData>(initialForm);
+export default function InvoiceForm({ onSuccess }) {
+  const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [discountDays, setDiscountDays] = useState(0);
-  const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [feedback, setFeedback] = useState(null);
 
-  const handleChange = (field: keyof FormData, value: string) => {
+  const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (feedback) setFeedback(null);
   };
 
-  // ── Discount calculation ──────────────────────────────────────────
   const fullAmount = parseFloat(form.amount) || 0;
 
   const { discountedAmount, discountPercent } = useMemo(() => {
@@ -59,10 +41,9 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
     };
   }, [fullAmount, discountDays]);
 
-  // Slider fill percentage for styling
   const sliderFill = (discountDays / MAX_DISCOUNT_DAYS) * 100;
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setFeedback(null);
@@ -256,7 +237,6 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
             border: "1px solid rgba(249, 115, 22, 0.15)",
           }}
         >
-          {/* Section header */}
           <div className="flex items-center gap-2 mb-4">
             <div
               className="w-7 h-7 rounded-md flex items-center justify-center"
@@ -265,10 +245,7 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
               <Zap size={14} style={{ color: "var(--accent-orange)" }} />
             </div>
             <div>
-              <h3
-                className="text-[13px] font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
                 Early Payment Discount
               </h3>
               <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
@@ -277,23 +254,15 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
             </div>
           </div>
 
-          {/* Slider labels */}
           <div className="flex justify-between items-center mb-2">
-            <span
-              className="text-[11px] font-semibold uppercase tracking-wider"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
               Payment Timeline
             </span>
-            <span
-              className="text-[13px] font-bold tabular-nums"
-              style={{ color: "var(--accent-orange)" }}
-            >
+            <span className="text-[13px] font-bold tabular-nums" style={{ color: "var(--accent-orange)" }}>
               {discountDays === 0 ? "Same-day" : `${discountDays} day${discountDays > 1 ? "s" : ""}`}
             </span>
           </div>
 
-          {/* Range slider */}
           <input
             type="range"
             min={0}
@@ -308,20 +277,12 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
             }}
           />
 
-          {/* Tick labels */}
           <div className="flex justify-between mt-1.5 px-0.5">
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-              0 days
-            </span>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-              15 days
-            </span>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-              30 days
-            </span>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>0 days</span>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>15 days</span>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>30 days</span>
           </div>
 
-          {/* Dynamic result display */}
           {fullAmount > 0 && (
             <div
               className="mt-4 rounded-lg px-4 py-3 animate-fade-in"
@@ -330,29 +291,17 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
                 border: "1px solid var(--border)",
               }}
             >
-              <p
-                className="text-[13px] leading-relaxed"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-primary)" }}>
                 Receive{" "}
-                <span
-                  className="font-bold text-[15px]"
-                  style={{ color: "var(--accent-green)" }}
-                >
+                <span className="font-bold text-[15px]" style={{ color: "var(--accent-green)" }}>
                   {formatBDT(discountedAmount)}
                 </span>{" "}
                 today instead of{" "}
-                <span
-                  className="font-bold text-[15px]"
-                  style={{ color: "var(--accent-green)" }}
-                >
+                <span className="font-bold text-[15px]" style={{ color: "var(--accent-green)" }}>
                   {formatBDT(fullAmount)}
                 </span>{" "}
                 in{" "}
-                <span
-                  className="font-bold text-[15px]"
-                  style={{ color: "var(--accent-green)" }}
-                >
+                <span className="font-bold text-[15px]" style={{ color: "var(--accent-green)" }}>
                   {discountDays}
                 </span>{" "}
                 days
@@ -372,21 +321,11 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
           <div
             className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium animate-fade-in"
             style={{
-              backgroundColor:
-                feedback.type === "success"
-                  ? "var(--accent-green-bg)"
-                  : "var(--accent-red-bg)",
-              color:
-                feedback.type === "success"
-                  ? "var(--accent-green)"
-                  : "var(--accent-red)",
+              backgroundColor: feedback.type === "success" ? "var(--accent-green-bg)" : "var(--accent-red-bg)",
+              color: feedback.type === "success" ? "var(--accent-green)" : "var(--accent-red)",
             }}
           >
-            {feedback.type === "success" ? (
-              <CheckCircle2 size={16} />
-            ) : (
-              <AlertCircle size={16} />
-            )}
+            {feedback.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
             {feedback.message}
           </div>
         )}
@@ -402,11 +341,7 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
               border: "1px solid rgba(255,255,255,0.1)",
             }}
           >
-            {loading ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Upload size={16} />
-            )}
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
             {loading ? "Submitting..." : "Submit Invoice"}
           </button>
         </div>
@@ -414,4 +349,3 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
     </div>
   );
 }
-

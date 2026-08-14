@@ -1,226 +1,245 @@
-// Clarity - Invoice Upload + Payout History API   (Apurba)
+// Feature 01 - Invoice Upload with OCR Parsing & Cloud Storage
+// (Apurba Roy, SL 3)   Mounted at /api/invoices
 //
-// Originally a standalone Express app (server/index.js). It is now an Express
-// Router so the whole platform can run on one server. The handler logic is
-// unchanged; only the `app` object became `router`, and the listen() call moved
-// to the shared entry point (../index.js).
-//
-//   POST /api/invoices              save an uploaded invoice
-//   GET  /api/invoices              every invoice in the shared table
-//   GET  /api/payouts               the ledger, as JSON, for the table
-//   GET  /api/payouts/export.csv    the same rows as a downloadable file
+// The OCR itself runs in the browser. These endpoints check what it read,
+// block an invoice that has already been submitted, and store the result.
 
 const express = require('express');
-const router = express.Router();
+const cloudinary = require('cloudinary').v2;
 const pool = require('../db');
 
-// The platform's standard early-payment discount.
-// A supplier who submits a 1,00,000 taka invoice receives 97,000 taka now and
-// pays 3,000 taka for not having to wait 90 days for the buyer to pay.
-const DISCOUNT_RATE = 0.03;
+const router = express.Router();
 
-// ---------------------------------------------------------------------------
-// The ledger query - the heart of Payout History.
-//
-// LEFT JOIN, not JOIN: a plain JOIN would throw away every invoice that has
-// no funder yet, and the ledger has to show every invoice ever submitted.
-//
-// The discount is calculated here instead of being stored. If payout_amount
-// is empty the subtraction gives an empty result too, which is correct - an
-// invoice that has not been funded has no discount yet.
-// ---------------------------------------------------------------------------
-const LEDGER_QUERY = `
-  SELECT
-    i.id,
-    i.invoice_number,
-    i.buyer_name,
-    i.status,
-    i.invoice_amount,
-    i.payout_amount,
-    i.invoice_amount - i.payout_amount AS discount_amount,
-    f.name AS funder_name,
-    TO_CHAR(i.submitted_date, 'YYYY-MM-DD') AS submitted_date,
-    TO_CHAR(i.payment_date, 'YYYY-MM-DD') AS payment_date
-  FROM invoices i
-  LEFT JOIN funders f ON f.id = i.funder_id
-  WHERE i.supplier_id = $1
-  ORDER BY i.submitted_date DESC NULLS LAST, i.id DESC
-`;
+// The SDK reads CLOUDINARY_URL from .env by itself, so the cloud name, API key
+// and secret never appear in the code and never reach the browser.
 
-// ---------------------------------------------------------------------------
-// POST /api/invoices  ->  save an invoice the supplier just uploaded
-// ---------------------------------------------------------------------------
-router.post('/invoices', async (req, res) => {
-  // Two screens post to this endpoint and they name things differently:
-  // the OCR upload page sends invoice_amount / file_name, Digonta's form
-  // sends amount / file_url. Accept either.
-  const {
-    supplier_id, buyer_name, invoice_number, due_date,
-    invoice_amount, amount: amountAlias,
-    file_name, file_url,
-    discounted_amount, discount_days,
-  } = req.body;
+// Checks the four fields the OCR filled in. Returns a list of what is wrong,
+// so the supplier is told everything at once instead of one thing at a time.
+function findProblems({ buyer_name, invoice_number, invoice_amount, due_date }) {
+  const problems = [];
 
-  const rawAmount = invoice_amount || amountAlias;
-  const document = file_url || file_name || null;
+  if (!buyer_name) problems.push('buyer name is missing');
+  if (!invoice_number) problems.push('invoice number is missing');
 
-  // Never trust what arrives from the browser. OCR can misread a field, and
-  // the supplier can edit any of them by hand before pressing submit.
-  const missing = [];
-  if (!buyer_name) missing.push('buyer name');
-  if (!invoice_number) missing.push('invoice number');
-  if (!rawAmount) missing.push('amount');
-  if (!due_date) missing.push('due date');
-
-  if (missing.length > 0) {
-    return res.status(400).json({ message: 'Please fill in: ' + missing.join(', ') });
+  if (!invoice_amount) {
+    problems.push('amount is missing');
+  } else if (isNaN(Number(invoice_amount)) || Number(invoice_amount) <= 0) {
+    problems.push('amount must be a number greater than zero');
   }
 
-  const amount = Number(rawAmount);
-  if (isNaN(amount) || amount <= 0) {
-    return res.status(400).json({ message: 'The amount must be a number greater than zero.' });
+  if (!due_date) {
+    problems.push('due date is missing');
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
+    problems.push('due date must be written as YYYY-MM-DD');
+  }
+
+  return problems;
+}
+
+// 0. POST /api/invoices/upload-file
+//    Stores the invoice document in Cloudinary and hands back its link.
+//
+//    The browser sends the file as a data URI - the same string it already
+//    built to show the preview - so no extra library is needed to read a
+//    multipart form. Cloudinary accepts a data URI directly.
+router.post('/upload-file', async (req, res) => {
+  const { file, file_name } = req.body;
+
+  if (!file) {
+    return res.status(400).json({ message: 'file is required' });
+  }
+  if (!file.startsWith('data:')) {
+    return res.status(400).json({ message: 'file must be a data URI' });
   }
 
   try {
-    // Work out what the supplier will actually receive. If the discount slider
-    // was used, that figure is already worked out on screen and the supplier
-    // agreed to it, so honour it. Otherwise apply the standard rate.
-    // Rounding to 2 decimal places keeps it to whole paisa - money should
-    // never carry a long tail of decimals.
-    const payout = discounted_amount
-      ? Number(discounted_amount)
-      : Math.round(amount * (1 - DISCOUNT_RATE) * 100) / 100;
+    // resource_type 'auto' lets Cloudinary work out whether this is an image
+    // or a PDF. Everything lands in one folder so invoices stay together.
+    const uploaded = await cloudinary.uploader.upload(file, {
+      folder: 'clarity/invoices',
+      resource_type: 'auto',
+    });
 
-    // Match the invoice to a funder straight away, so the supplier can see who
-    // is backing it and exactly what they will be paid.
-    const funders = await pool.query('SELECT id FROM funders ORDER BY random() LIMIT 1');
-    const funderId = funders.rows.length > 0 ? funders.rows[0].id : null;
+    res.status(201).json({
+      file_url: uploaded.secure_url,
+      file_name: file_name || uploaded.original_filename,
+      bytes: uploaded.bytes,
+      format: uploaded.format,
+    });
+  } catch (error) {
+    console.error('Cloudinary upload failed:', error.message);
+    res.status(502).json({ message: 'Could not store the document: ' + error.message });
+  }
+});
 
-    // The invoice is now funded: it has a funder, a payout and a discount.
-    // payment_date stays empty until the money actually lands.
-    //
-    // TEMPORARY: "number" and "amount" are another member's versions of
-    // invoice_number and invoice_amount. They are NOT NULL on the shared
-    // database, so we have to fill them in as well or the insert is rejected.
-    // Delete them once the group agrees on a single set of column names.
-    const result = await pool.query(
+// 1. POST /api/invoices/check-duplicate
+//    Called before the supplier confirms, so they find out early that this
+//    invoice has already been submitted - the same invoice must never be
+//    financed twice.
+router.post('/check-duplicate', async (req, res) => {
+  const { invoice_number, supplier_id } = req.body;
+
+  if (!invoice_number) {
+    return res.status(400).json({ message: 'invoice_number is required' });
+  }
+
+  try {
+    const found = await pool.query(
+      `SELECT id, invoice_number, buyer_name, invoice_amount, submitted_date
+       FROM invoices
+       WHERE invoice_number = $1 AND supplier_id = $2`,
+      [invoice_number, String(supplier_id || 1)]
+    );
+
+    res.json({
+      invoice_number: invoice_number,
+      duplicate: found.rowCount > 0,
+      existing: found.rows[0] || null,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Could not check that invoice number' });
+  }
+});
+
+// 2. POST /api/invoices - save the invoice the supplier just confirmed
+router.post('/', async (req, res) => {
+  const { supplier_id, buyer_name, invoice_number, invoice_amount, due_date, file_url } = req.body;
+
+  const problems = findProblems(req.body);
+  if (problems.length > 0) {
+    return res.status(400).json({ message: 'Please fix: ' + problems.join(', ') });
+  }
+
+  try {
+    // The same screening as the endpoint above, repeated here because the
+    // browser could skip that step. The server is the only place we can
+    // actually enforce it.
+    const clash = await pool.query(
+      'SELECT id FROM invoices WHERE invoice_number = $1 AND supplier_id = $2',
+      [invoice_number, String(supplier_id || 1)]
+    );
+    if (clash.rowCount > 0) {
+      return res.status(409).json({ message: 'That invoice number has already been submitted' });
+    }
+
+    // A new invoice starts at the first stage of the pipeline. It has no
+    // funder and no payout yet - those come later, from other features.
+    const saved = await pool.query(
       `INSERT INTO invoices
          (supplier_id, buyer_name, invoice_number, invoice_amount,
-          due_date, submitted_date, status, file_name,
-          funder_id, payout_amount,
-          number, amount)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'Funded', $6,
-               $7, $8,
-               $9, $10)
-       RETURNING id, invoice_number`,
+          due_date, submitted_date, status, file_url, number, amount)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'Submitted', $6, $7, $8)
+       RETURNING id, invoice_number, buyer_name, invoice_amount, due_date, status`,
       [
-        String(supplier_id || 1),  // supplier_id is TEXT so Digonta's "sup-420" fits too
-        buyer_name, invoice_number, amount, due_date, document,
-        funderId, payout,
-        invoice_number,   // $9  -> "number", their column, holds the same value
-        String(amount),   // $10 -> "amount", their column, stores it as text
+        String(supplier_id || 1), buyer_name, invoice_number, Number(invoice_amount),
+        due_date, file_url || null,
+        invoice_number,               // another member's column name for the same value
+        String(invoice_amount),       // same again, stored as text on their side
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(saved.rows[0]);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: 'Could not save the invoice' });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/invoices  ->  every invoice in the shared table, whoever added it.
-//
-// No supplier filter here on purpose. This is the "My Invoices" screen, and it
-// has to show invoices submitted through Digonta's form as well as our own.
-//
-// "amount" and "file_url" are Digonta's column names; they are returned as well
-// so his invoice table renders the amount and the file link correctly.
-// ---------------------------------------------------------------------------
-router.get('/invoices', async (req, res) => {
+// 3. GET /api/invoices - every invoice, newest first
+router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT
-        i.id,
-        i.invoice_number,
-        i.buyer_name,
-        i.supplier_id,
-        i.status,
-        i.invoice_amount,
-        i.amount,
-        i.file_url,
-        i.payout_amount,
-        f.name AS funder_name,
-        TO_CHAR(i.due_date, 'YYYY-MM-DD') AS due_date,
-        TO_CHAR(i.submitted_date, 'YYYY-MM-DD') AS submitted_date
-      FROM invoices i
-      LEFT JOIN funders f ON f.id = i.funder_id
-      ORDER BY i.submitted_date DESC NULLS LAST, i.id DESC
-    `);
+    const result = await pool.query(
+      `SELECT id, invoice_number, buyer_name, supplier_id, status,
+              invoice_amount, payout_amount, file_url, frozen_at,
+              TO_CHAR(due_date, 'YYYY-MM-DD')       AS due_date,
+              TO_CHAR(submitted_date, 'YYYY-MM-DD') AS submitted_date
+       FROM invoices
+       ORDER BY submitted_date DESC NULLS LAST, id DESC`
+    );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: 'Could not load invoices' });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/payouts?supplierId=1  ->  the ledger as JSON
-// ---------------------------------------------------------------------------
-router.get('/payouts', async (req, res) => {
+// 4. GET /api/invoices/:id - one invoice
+router.get('/:id', async (req, res) => {
   try {
-    const supplierId = req.query.supplierId || 1;
-    const result = await pool.query(LEDGER_QUERY, [supplierId]);
-    res.json(result.rows);
+    const result = await pool.query(
+      `SELECT id, invoice_number, buyer_name, supplier_id, status,
+              invoice_amount, payout_amount, file_url, frozen_at,
+              TO_CHAR(due_date, 'YYYY-MM-DD')       AS due_date,
+              TO_CHAR(submitted_date, 'YYYY-MM-DD') AS submitted_date
+       FROM invoices WHERE id::TEXT = $1`,
+      [req.params.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'No invoice with that id' });
+    }
+    res.json(result.rows[0]);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Could not load payout history' });
+    res.status(500).json({ message: 'Could not load that invoice' });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/payouts/export.csv?supplierId=1  ->  the same rows as a CSV file
-// ---------------------------------------------------------------------------
-router.get('/payouts/export.csv', async (req, res) => {
+// 5. PATCH /api/invoices/:id - correct a field the OCR read wrongly.
+//    Only allowed while the invoice is still at the Submitted stage; once a
+//    buyer has confirmed it, the amount is part of an agreement.
+router.patch('/:id', async (req, res) => {
+  const { buyer_name, invoice_amount, due_date } = req.body;
+
+  if (!buyer_name && !invoice_amount && !due_date) {
+    return res.status(400).json({ message: 'Send at least one field to change' });
+  }
+  if (invoice_amount && (isNaN(Number(invoice_amount)) || Number(invoice_amount) <= 0)) {
+    return res.status(400).json({ message: 'amount must be a number greater than zero' });
+  }
+  if (due_date && !/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
+    return res.status(400).json({ message: 'due date must be written as YYYY-MM-DD' });
+  }
+
   try {
-    const supplierId = req.query.supplierId || 1;
-    const result = await pool.query(LEDGER_QUERY, [supplierId]);
-
-    // Build the file one line at a time. Line 1 is the column headings.
-    const lines = [
-      'Invoice Number,Buyer,Status,Invoice Amount,Payout Received,Discount Paid,Funder,Submitted Date,Payment Date',
-    ];
-
-    for (const row of result.rows) {
-      // Empty database values must become empty cells, not the word "null".
-      // Text is wrapped in quotes in case a company name contains a comma.
-      const buyer = row.buyer_name === null ? '' : '"' + row.buyer_name + '"';
-      const funder = row.funder_name === null ? '' : '"' + row.funder_name + '"';
-
-      lines.push(
-        [
-          row.invoice_number,
-          buyer,
-          row.status,
-          row.invoice_amount,
-          row.payout_amount,
-          row.discount_amount,
-          funder,
-          row.submitted_date,
-          row.payment_date,
-        ].join(',')
-      );
+    const invoice = await pool.query('SELECT status FROM invoices WHERE id::TEXT = $1', [req.params.id]);
+    if (invoice.rowCount === 0) {
+      return res.status(404).json({ message: 'No invoice with that id' });
+    }
+    if (invoice.rows[0].status !== 'Submitted') {
+      return res.status(409).json({ message: 'This invoice has moved past Submitted and can no longer be edited' });
     }
 
-    // These two headers are what make the browser download a file
-    // instead of just showing the text on screen.
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="payout-history.csv"');
-    res.send(lines.join('\n'));
+    // COALESCE keeps the old value whenever a field was left out of the request.
+    const updated = await pool.query(
+      `UPDATE invoices
+       SET buyer_name     = COALESCE($1, buyer_name),
+           invoice_amount = COALESCE($2, invoice_amount),
+           due_date       = COALESCE($3::DATE, due_date)
+       WHERE id::TEXT = $4
+       RETURNING id, invoice_number, buyer_name, invoice_amount, status`,
+      [buyer_name || null, invoice_amount || null, due_date || null, req.params.id]
+    );
+
+    res.json(updated.rows[0]);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Could not export payout history' });
+    res.status(500).json({ message: 'Could not update that invoice' });
+  }
+});
+
+// 6. DELETE /api/invoices/:id - withdraw an invoice uploaded by mistake.
+//    Same rule: only while nobody else has acted on it.
+router.delete('/:id', async (req, res) => {
+  try {
+    const removed = await pool.query(
+      "DELETE FROM invoices WHERE id::TEXT = $1 AND status = 'Submitted' RETURNING id, invoice_number",
+      [req.params.id]
+    );
+
+    if (removed.rowCount === 0) {
+      return res.status(409).json({
+        message: 'No invoice was removed - it does not exist, or it has moved past Submitted',
+      });
+    }
+    res.json({ deleted: true, invoice: removed.rows[0] });
+  } catch (error) {
+    res.status(500).json({ message: 'Could not remove that invoice' });
   }
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import InvoiceForm from "../components/InvoiceForm";
+import InvoiceForm from "../components/InvoiceForm.jsx";
 
 export default function InvoicesPage() {
   return (

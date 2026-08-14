@@ -20,14 +20,20 @@
   --blue-bg: #eff6ff;
 }
 
+/* No global reset here.
+   This file is loaded after Tailwind, and it is NOT inside a @layer. In CSS
+   cascade layers an unlayered rule beats a layered one whatever its
+   specificity, so a "* { margin: 0 }" here would silently override every
+   Tailwind margin and padding utility in the whole app - including the
+   ml-[250px] that holds the page clear of the fixed sidebar.
 
+   Tailwind's own preflight already resets margins, padding and box-sizing,
+   so nothing is lost by leaving it out. Only the headings and paragraphs
+   used by these pages are reset below, by name. */
 
-body {
-  background: var(--page-bg);
-  color: var(--text-primary);
-  font-family: Inter, "Segoe UI", Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.6;
+h1, h2, h3, p, ul, ol, table {
+  margin: 0;
+  padding: 0;
 }
 
 /* ---------- app shell ---------- */
@@ -214,6 +220,28 @@ body {
 .panel-sub {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+/* risk bands on the discount calculator */
+.chip-band-A { background: var(--green-bg); color: var(--green); }
+.chip-band-B { background: var(--blue-bg); color: var(--blue); }
+.chip-band-C { background: var(--red-bg); color: var(--red); }
+
+/* dispute statuses */
+.chip-open     { background: var(--red-bg); color: var(--red); }
+.chip-released { background: var(--green-bg); color: var(--green); }
+.chip-voided   { background: #f1f5f9; color: var(--text-secondary); }
+
+/* dropdowns, styled to match the text inputs */
+.field select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--text-primary);
 }
 
 .chip-pending   { background: #f8fafc; color: #0f172a; }
@@ -913,6 +941,12 @@ h1 {
 .field-note {
   font-size: 11px;
   color: var(--green);
+  margin-top: 4px;
+}
+
+.field-warning {
+  font-size: 11px;
+  color: var(--red);
   margin-top: 4px;
 }
 

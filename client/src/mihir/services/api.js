@@ -16,12 +16,17 @@ export const updateInvoiceStatus = async (id, newStatus, actorName, recipientEma
         },
         body: JSON.stringify({ newStatus, actorName, recipientEmail, note }),
     });
-    const text = await response.text();
-    try {
-        return JSON.parse(text);
-    } catch (e) {
-        throw new Error(`Server returned raw text instead of JSON: ${text}`);
+
+    const data = await response.json();
+
+    // The server sends an { error } message when the update is rejected
+    // (for example an invalid stage transition). Turn that into a real error
+    // so the screen can show it.
+    if (!response.ok) {
+        throw new Error(data.error || 'Failed to update the invoice status');
     }
+
+    return data;
 };
 
 export const createInvoice = async (invoiceData) => {

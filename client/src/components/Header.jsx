@@ -1,8 +1,30 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Bell, Search, Grid3X3 } from "lucide-react";
 
 export default function Header() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // When the header loads, fetch the notifications and count the unread ones.
+  useEffect(() => {
+    fetch("/api/notifications")
+      .then((res) => res.json())
+      .then((data) => {
+        let count = 0;
+        for (let i = 0; i < data.length; i++) {
+          if (!data[i].is_read) {
+            count = count + 1;
+          }
+        }
+        setUnreadCount(count);
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  }, []);
+
   return (
     <header className="h-[60px] flex items-center justify-between px-6 border-b"
       style={{
@@ -31,17 +53,21 @@ export default function Header() {
 
       {/* ── Right Actions ─────────────────────── */}
       <div className="flex items-center gap-3">
-        {/* Notification bell */}
-        <button className="relative p-2 rounded-lg transition-colors duration-200 cursor-pointer"
+        {/* Notification bell - opens the Notifications page */}
+        <Link to="/notifications" className="relative p-2 rounded-lg transition-colors duration-200 cursor-pointer"
           style={{ color: "var(--text-secondary)" }}
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#F1F5F9")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
         >
           <Bell size={19} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-            style={{ backgroundColor: "var(--accent-red)" }}
-          />
-        </button>
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+              style={{ backgroundColor: "var(--accent-red)" }}
+            >
+              {unreadCount}
+            </span>
+          )}
+        </Link>
 
         {/* Grid */}
         <button className="p-2 rounded-lg transition-colors duration-200 cursor-pointer"
