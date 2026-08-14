@@ -1,4 +1,4 @@
-// Clarity - Dynamic Discounting API (Module 2 - ameet faisal)
+// Clarity - Dynamic Discounting API (Module 2 - ameet faisal sl 4)
 //
 // Buyer-funded early payment flow:
 //   GET  /api/dynamic-discounting/eligible-invoices
