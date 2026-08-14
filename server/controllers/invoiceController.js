@@ -1,5 +1,6 @@
 const supabase = require('../config/supabase');
 const smsService = require('../services/smsService');
+const healthController = require('./healthController');
 
 // getting all the invoices for supplier
 exports.getAllInvoices = async (req, res) => {
@@ -98,6 +99,9 @@ exports.updateInvoiceStatus = async (req, res) => {
         // Send SMS
         await smsService.sendStatusUpdateSMS(supplierPhone, newStatus);
         
+        // Recalculate health so it stays up to date
+        await healthController.runRecalculation();
+        
         res.status(200).json({ message: `Invoice ${id} status updated to ${newStatus}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -131,6 +135,9 @@ exports.createInvoice = async (req, res) => {
             }]);
 
         if (historyError) throw historyError;
+
+        // Recalculate health so it stays up to date
+        await healthController.runRecalculation();
 
         res.status(201).json(newInvoice);
     } catch (error) {
