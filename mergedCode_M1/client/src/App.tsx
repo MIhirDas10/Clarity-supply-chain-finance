@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
+import BuyerSidebar from "./components/BuyerSidebar";
 import Header from "./components/Header";
 
 // Each member's feature page, kept in its own folder with its original code.
@@ -9,11 +10,25 @@ import MyInvoices from "./apurba/MyInvoices";              // Apurba - My Invoic
 import PayoutHistory from "./apurba/PayoutHistory";        // Apurba - Payout History
 import InvoicesPage from "./digonto/pages/Invoices";       // Digonto - Discount Calculator
 import CashFlowForecast from "./ameet/CashFlowForecast";     // Ameet   - Cash Flow Forecast Engine
+import DynamicDiscounting from "./ameet/DynamicDiscounting"; // Module 2 - Buyer-funded early payment
+import SupplierDynamicDiscountOffers from "./ameet/SupplierDynamicDiscountOffers";
 
-function Layout({ children }: { children: React.ReactNode }) {
+function SupplierLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
       <Sidebar />
+      <div className="flex-1 ml-[250px] flex flex-col relative">
+        <Header />
+        <main className="flex-1 overflow-x-hidden relative">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+function BuyerLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
+      <BuyerSidebar />
       <div className="flex-1 ml-[250px] flex flex-col relative">
         <Header />
         <main className="flex-1 overflow-x-hidden relative">{children}</main>
@@ -43,20 +58,24 @@ function Placeholder({ name }: { name: string }) {
 function App() {
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/pipeline" replace />} />
-          <Route path="/pipeline" element={<Dashboard />} />
-          <Route path="/upload" element={<Content><InvoiceUpload /></Content>} />
-          <Route path="/discount" element={<InvoicesPage />} />
-          <Route path="/my-invoices" element={<Content><MyInvoices /></Content>} />
-          <Route path="/payouts" element={<Content><PayoutHistory /></Content>} />
-          <Route path="/cashflow" element={<CashFlowForecast />} />
-          <Route path="/notifications" element={<Placeholder name="Notifications" />} />
-          <Route path="/settings" element={<Placeholder name="Settings" />} />
-          <Route path="*" element={<Navigate to="/pipeline" replace />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        <Route path="/" element={<Navigate to="/pipeline" replace />} />
+
+        <Route path="/pipeline" element={<SupplierLayout><Dashboard /></SupplierLayout>} />
+        <Route path="/upload" element={<SupplierLayout><Content><InvoiceUpload /></Content></SupplierLayout>} />
+        <Route path="/discount" element={<SupplierLayout><InvoicesPage /></SupplierLayout>} />
+        <Route path="/my-invoices" element={<SupplierLayout><Content><MyInvoices /></Content></SupplierLayout>} />
+        <Route path="/payouts" element={<SupplierLayout><Content><PayoutHistory /></Content></SupplierLayout>} />
+        <Route path="/cashflow" element={<SupplierLayout><CashFlowForecast /></SupplierLayout>} />
+        <Route path="/buyer-funded-offers" element={<SupplierLayout><SupplierDynamicDiscountOffers /></SupplierLayout>} />
+        <Route path="/notifications" element={<SupplierLayout><Placeholder name="Notifications" /></SupplierLayout>} />
+        <Route path="/settings" element={<SupplierLayout><Placeholder name="Settings" /></SupplierLayout>} />
+
+        <Route path="/buyer" element={<Navigate to="/buyer/dynamic-discounting" replace />} />
+        <Route path="/buyer/dynamic-discounting" element={<BuyerLayout><DynamicDiscounting /></BuyerLayout>} />
+
+        <Route path="*" element={<Navigate to="/pipeline" replace />} />
+      </Routes>
     </Router>
   );
 }
