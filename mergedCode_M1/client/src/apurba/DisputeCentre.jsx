@@ -18,7 +18,9 @@ function DisputeCentre() {
   const [form, setForm] = useState({
     invoice_id: '', filed_by: 'Apex Footwear Ltd', reason: '', notes: '',
   });
-  const [evidence, setEvidence] = useState({ file_url: '', note: '' });
+  const [evidence, setEvidence] = useState({ note: '' });
+  const [document, setDocument] = useState(null);   // the file the buyer chose
+  const [uploading, setUploading] = useState(false);
 
   // Reload the invoice list and the dispute list together.
   useEffect(() => {
@@ -63,20 +65,65 @@ function DisputeCentre() {
     open(data.id);
   }
 
+  // Reads the chosen file into the data URI the upload endpoint expects.
+  function readAsDataUri(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Could not read the file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Two steps: put the file in Cloudinary, then record the link it gives back
+  // against the dispute. The dispute table only ever stores the link.
   async function addEvidence(event) {
     event.preventDefault();
-    const res = await fetch(API_URL + '/api/disputes/' + selected.id + '/evidence', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uploaded_by: selected.filed_by, ...evidence }),
-    });
-    const data = await res.json();
+    setMessage(null);
 
-    if (!res.ok) {
-      return setMessage({ bad: true, text: data.message });
+    if (!document) {
+      return setMessage({ bad: true, text: 'Choose a document first.' });
     }
-    setEvidence({ file_url: '', note: '' });
-    open(selected.id);
+
+    setUploading(true);
+    try {
+      const stored = await fetch(API_URL + '/api/invoices/upload-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file: await readAsDataUri(document),
+          file_name: document.name,
+        }),
+      });
+      const storedData = await stored.json();
+
+      if (!stored.ok) {
+        return setMessage({ bad: true, text: storedData.message });
+      }
+
+      const res = await fetch(API_URL + '/api/disputes/' + selected.id + '/evidence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uploaded_by: selected.filed_by,
+          file_url: storedData.file_url,
+          note: evidence.note || document.name,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        return setMessage({ bad: true, text: data.message });
+      }
+
+      setEvidence({ note: '' });
+      setDocument(null);
+      open(selected.id);
+    } catch (error) {
+      setMessage({ bad: true, text: 'Could not upload that document.' });
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function resolve(decision) {
@@ -227,22 +274,29 @@ function DisputeCentre() {
                   <>
                     <form onSubmit={addEvidence}>
                       <div className="field">
-                        <label>Add a document (Cloudinary link)</label>
+                        <label>Supporting document</label>
                         <input
-                          placeholder="https://res.cloudinary.com/..."
-                          required
-                          value={evidence.file_url}
-                          onChange={(e) => setEvidence({ ...evidence, file_url: e.target.value })}
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => setDocument(e.target.files[0] || null)}
                         />
+                        <p className="field-note">
+                          {document
+                            ? document.name + ' — will be stored in Cloudinary'
+                            : 'A delivery note, a photograph of the goods, a signed receipt.'}
+                        </p>
                       </div>
                       <div className="field">
                         <label>Note</label>
                         <input
+                          placeholder="e.g. Signed delivery note showing 380 units"
                           value={evidence.note}
                           onChange={(e) => setEvidence({ ...evidence, note: e.target.value })}
                         />
                       </div>
-                      <button className="btn-outline" type="submit">Attach document</button>
+                      <button className="btn-outline" type="submit" disabled={!document || uploading}>
+                        {uploading ? 'Uploading…' : 'Attach document'}
+                      </button>
                     </form>
 
                     <div className="form-submit" style={{ gap: 10 }}>
@@ -261,7 +315,12 @@ function DisputeCentre() {
                 </p>
                 {selected.evidence.length === 0 && <p className="form-hint">None attached.</p>}
                 {selected.evidence.map((e) => (
-                  <p key={e.id} className="discount-note">{e.note || 'Document'} — {e.file_url}</p>
+                  <p key={e.id} className="discount-note">
+                    <a href={e.file_url} target="_blank" rel="noreferrer">
+                      {e.note || 'Document'}
+                    </a>{' '}
+                    — stored in Cloudinary
+                  </p>
                 ))}
 
                 <p className="form-title" style={{ marginTop: 18 }}>History</p>
