@@ -1,20 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Tesseract from 'tesseract.js';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = 'http://localhost:1012';
 const SUPPLIER_ID = 1; // later this comes from the logged-in user
 
 // ---------------------------------------------------------------------------
 // Reading the invoice
 //
-// Tesseract gives us the whole invoice as one block of plain text. These
-// patterns then pick the four fields we need out of that text. Each field has
-// more than one pattern because different companies label things differently -
-// "Invoice No", "Invoice #", "INV-2026-1042" on its own, and so on.
+// We end up with the whole invoice as one block of plain text, whether it came
+// from a PDF or from a photograph. These patterns then pick the four fields we
+// need out of that text. Each field has more than one pattern because different
+// companies label things differently - "Invoice No", "Invoice #", and so on.
 // ---------------------------------------------------------------------------
 
+// The invoice number may be written with spaces in it - "INV 2026 1099" - so
+// after the first chunk we allow up to three more, but only if each one
+// contains a digit. That stops the match running on into the next label:
+// in "Invoice No: INV-1042 Date: 12 Aug" the word "Date" has no digit, so
+// the capture stops at INV-1042.
 const INVOICE_NUMBER_PATTERNS = [
-  /invoice\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9\/-]+)/i,
+  /invoice\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\/-]*(?:[ ][A-Za-z0-9\/-]*\d[A-Za-z0-9\/-]*){0,3})/i,
   /\b(INV[-\s]?[A-Za-z0-9-]{3,})\b/i,
 ];
 
@@ -23,10 +28,14 @@ const AMOUNT_PATTERNS = [
   /\btotal\b\s*[:\-]?\s*(?:BDT|Tk\.?|৳)?\s*([\d][\d,\s]*(?:\.\d{1,2})?)/i,
 ];
 
+// All three ways of labelling the date share the same two value shapes, so
+// the labels are grouped rather than repeated - otherwise "Payment Due" only
+// matched one of the two formats, which was a real bug.
+const DUE_DATE_LABEL = /(?:due\s*date|payment\s*due|date\s*due)/;
+
 const DUE_DATE_PATTERNS = [
-  /due\s*date\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/i,
-  /due\s*date\s*[:\-]?\s*(\d{1,2}[\/\-\s][A-Za-z0-9]+[\/\-\s]\d{2,4})/i,
-  /payment\s*due\s*[:\-]?\s*(\d{1,2}[\/\-\s][A-Za-z0-9]+[\/\-\s]\d{2,4})/i,
+  new RegExp(DUE_DATE_LABEL.source + /\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/.source, 'i'),
+  new RegExp(DUE_DATE_LABEL.source + /\s*[:\-]?\s*(\d{1,2}[\/\-\s][A-Za-z0-9]+[\/\-\s]\d{2,4})/.source, 'i'),
 ];
 
 const BUYER_PATTERNS = [
@@ -54,9 +63,29 @@ function toISODate(value) {
   if (!value) {
     return '';
   }
+
+  // Already in the right shape.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return value;
   }
+
+  // All-numeric dates are read DAY FIRST, because Bangladesh writes
+  // 05/09/2026 to mean 5 September. Date.parse() would read that American
+  // style as 9 May - the wrong month, silently, on a financial document.
+  const numeric = value.match(/^(\d{1,2})[\/\-\s](\d{1,2})[\/\-\s](\d{2,4})$/);
+  if (numeric) {
+    const day = numeric[1].padStart(2, '0');
+    const month = numeric[2].padStart(2, '0');
+    const year = numeric[3].length === 2 ? '20' + numeric[3] : numeric[3];
+
+    if (Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > 31) {
+      return '';
+    }
+    return year + '-' + month + '-' + day;
+  }
+
+  // Anything with a month name in it ("10 Nov 2026") is unambiguous, so the
+  // built-in parser is safe here.
   const parsed = Date.parse(value);
   if (isNaN(parsed)) {
     return '';
@@ -67,12 +96,37 @@ function toISODate(value) {
   return date.getFullYear() + '-' + month + '-' + day;
 }
 
+// pdf.js hands back every scrap of text separately, with no line breaks. The
+// patterns above rely on lines, so we rebuild them: each scrap carries its
+// position on the page, and a change in the vertical position means a new line.
+function joinTextItems(items) {
+  let text = '';
+  let lastY = null;
+
+  for (const item of items) {
+    const y = item.transform[5];
+
+    if (lastY !== null && Math.abs(y - lastY) > 2) {
+      text += '\n';
+    } else if (text !== '') {
+      text += ' ';
+    }
+
+    text += item.str;
+    lastY = y;
+  }
+
+  return text;
+}
+
 function InvoiceUpload() {
   const [preview, setPreview] = useState('');
   const [fileName, setFileName] = useState('');
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [reading, setReading] = useState(false);
+  const [stage, setStage] = useState('');
+  const [source, setSource] = useState('');
   const [rawText, setRawText] = useState('');
   const [autoFilled, setAutoFilled] = useState([]);
   const [message, setMessage] = useState(null);
@@ -85,8 +139,83 @@ function InvoiceUpload() {
     due_date: '',
   });
 
+  const [duplicate, setDuplicate] = useState(null);
+
   function updateField(name, value) {
     setForm({ ...form, [name]: value });
+  }
+
+  // The same invoice must never be financed twice, so as soon as we have an
+  // invoice number we ask the server whether it has been submitted before.
+  // This happens while the supplier is still reviewing, not after they submit.
+  useEffect(() => {
+    setDuplicate(null);
+    if (!form.invoice_number) return;
+
+    const timer = setTimeout(() => {
+      fetch(API_URL + '/api/invoices/check-duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_number: form.invoice_number, supplier_id: SUPPLIER_ID }),
+      })
+        .then((r) => r.json())
+        .then((result) => setDuplicate(result.duplicate ? result.existing : null))
+        .catch(() => {});
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [form.invoice_number]);
+
+  // Run the OCR engine over an image or a canvas.
+  async function runOcr(image) {
+    setStage('Reading the text');
+    const result = await Tesseract.recognize(image, 'eng', {
+      logger: (info) => {
+        if (info.status === 'recognizing text') {
+          setProgress(Math.round(info.progress * 100));
+        }
+      },
+    });
+    return result.data.text;
+  }
+
+  // A PDF exported from accounting software already contains its text, so we
+  // read that directly - it is exact, and far faster than OCR. Only a PDF that
+  // is really a scanned photograph needs the OCR engine.
+  async function readPdf(file) {
+    setStage('Opening the PDF');
+
+    // pdf.js is a large library, so it is only downloaded when someone
+    // actually opens a PDF. Anyone uploading a photograph never pays for it.
+    // Its background worker is bundled with the app rather than fetched from
+    // a web address, so this still works with no internet connection.
+    const pdfjs = await import('pdfjs-dist');
+    const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+
+    const data = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data }).promise;
+    const page = await pdf.getPage(1);
+
+    // Draw page one so the supplier can see what was uploaded.
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    setPreview(canvas.toDataURL());
+
+    const content = await page.getTextContent();
+    const layerText = joinTextItems(content.items);
+
+    if (layerText.trim().length > 40) {
+      setSource('read straight from the PDF');
+      return layerText;
+    }
+
+    // Almost no text in the file, so it is a scan. Fall back to OCR.
+    setSource('scanned PDF, read by OCR');
+    return runOcr(canvas);
   }
 
   async function handleFile(file) {
@@ -95,33 +224,26 @@ function InvoiceUpload() {
     }
 
     setMessage(null);
-
-    if (file.type === 'application/pdf') {
-      setMessage({
-        kind: 'bad',
-        text: 'PDFs cannot be read directly. Save the invoice as a PNG or JPG photo and upload that.',
-      });
-      return;
-    }
-
     setFileName(file.name);
-    setPreview(URL.createObjectURL(file));
     setReading(true);
     setProgress(0);
+    setStage('');
+    setSource('');
     setRawText('');
     setAutoFilled([]);
+    setPreview('');
 
     try {
-      // This is the OCR step. Tesseract reads the picture and hands back text.
-      const result = await Tesseract.recognize(file, 'eng', {
-        logger: (info) => {
-          if (info.status === 'recognizing text') {
-            setProgress(Math.round(info.progress * 100));
-          }
-        },
-      });
+      let text = '';
 
-      const text = result.data.text;
+      if (file.type === 'application/pdf') {
+        text = await readPdf(file);
+      } else {
+        setPreview(URL.createObjectURL(file));
+        setSource('photograph, read by OCR');
+        text = await runOcr(file);
+      }
+
       setRawText(text);
 
       const buyer = findFirst(text, BUYER_PATTERNS);
@@ -146,13 +268,14 @@ function InvoiceUpload() {
       if (filled.length === 0) {
         setMessage({
           kind: 'bad',
-          text: 'Nothing could be read from that image. Type the details in by hand, or try a clearer photo.',
+          text: 'Nothing could be read from that file. Type the details in by hand, or try a clearer copy.',
         });
       }
     } catch (error) {
-      setMessage({ kind: 'bad', text: 'Could not read the image: ' + error.message });
+      setMessage({ kind: 'bad', text: 'Could not read that file: ' + error.message });
     }
 
+    setStage('');
     setReading(false);
   }
 
@@ -170,7 +293,7 @@ function InvoiceUpload() {
           invoice_number: form.invoice_number,
           invoice_amount: form.invoice_amount,
           due_date: form.due_date,
-          file_name: fileName,
+          file_url: fileName,
         }),
       });
 
@@ -189,20 +312,23 @@ function InvoiceUpload() {
       setPreview('');
       setFileName('');
       setRawText('');
+      setSource('');
       setAutoFilled([]);
     } catch (error) {
-      setMessage({ kind: 'bad', text: 'Could not reach the server. Is it running on port 4000?' });
+      setMessage({ kind: 'bad', text: 'Could not reach the server. Is it running on port 1012?' });
     }
   }
 
+  // A duplicate blocks the submit button, so the same invoice cannot be
+  // financed twice.
   const ready =
-    form.buyer_name && form.invoice_number && form.invoice_amount && form.due_date;
+    form.buyer_name && form.invoice_number && form.invoice_amount && form.due_date && !duplicate;
 
   return (
     <div>
       <div className="header-row">
         <div>
-          <h1>Upload invoice</h1>
+          <h1 className="page-title">Upload invoice</h1>
           <p className="subtitle">
             The details are read off the document automatically. Check them before submitting.
           </p>
@@ -233,10 +359,10 @@ function InvoiceUpload() {
           >
             <span className="dropzone-icon">🧾</span>
             <p className="dropzone-title">Drag and drop the invoice here</p>
-            <p className="dropzone-hint">PNG or JPG photo &middot; or click to browse</p>
+            <p className="dropzone-hint">PDF, PNG or JPG &middot; or click to browse</p>
             <input
               type="file"
-              accept="image/*,application/pdf"
+              accept="application/pdf,image/*"
               style={{ display: 'none' }}
               onChange={(e) => handleFile(e.target.files[0])}
             />
@@ -245,9 +371,11 @@ function InvoiceUpload() {
           {reading && (
             <>
               <div className="progress-track">
-                <div className="progress-bar" style={{ width: progress + '%' }} />
+                <div className="progress-bar" style={{ width: (progress || 6) + '%' }} />
               </div>
-              <p className="progress-label">Reading the invoice... {progress}%</p>
+              <p className="progress-label">
+                {stage}{progress > 0 ? '... ' + progress + '%' : '...'}
+              </p>
             </>
           )}
 
@@ -255,7 +383,7 @@ function InvoiceUpload() {
 
           {rawText && (
             <details className="raw-text">
-              <summary>Show the raw text the OCR read</summary>
+              <summary>Show the text that was read{source ? ' (' + source + ')' : ''}</summary>
               <pre>{rawText}</pre>
             </details>
           )}
@@ -286,7 +414,14 @@ function InvoiceUpload() {
                 value={form.invoice_number}
                 onChange={(e) => updateField('invoice_number', e.target.value)}
               />
-              {autoFilled.includes('invoice_number') && <p className="field-note">read from the invoice</p>}
+              {duplicate ? (
+                <p className="field-warning">
+                  Already submitted on {duplicate.submitted_date} for{' '}
+                  {duplicate.buyer_name} — this invoice cannot be financed twice.
+                </p>
+              ) : (
+                autoFilled.includes('invoice_number') && <p className="field-note">read from the invoice</p>
+              )}
             </div>
 
             <div className="field">
@@ -308,7 +443,7 @@ function InvoiceUpload() {
               {autoFilled.includes('due_date') && <p className="field-note">read from the invoice</p>}
             </div>
 
-            <button className="button" type="submit" disabled={!ready || reading}>
+            <button className="submit-button" type="submit" disabled={!ready || reading}>
               Confirm and submit
             </button>
           </form>

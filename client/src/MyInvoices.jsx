@@ -7,9 +7,8 @@ import {
   RefreshCw,
   Download,
 } from 'lucide-react';
-import InvoiceForm from './InvoiceForm.jsx';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = 'http://localhost:1012';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -152,8 +151,6 @@ function MyInvoices() {
           colour="teal"
         />
       </div>
-
-      <InvoiceForm onSuccess={() => setRefreshKey(refreshKey + 1)} />
 
       <div className="panel">
         <div className="panel-head">

@@ -20,6 +20,11 @@ async function setup() {
   await pool.query(schema);
   console.log('Tables are ready.');
 
+  // Suppliers, funders and buyers always load - they are lists the app needs,
+  // and re-running them changes nothing.
+  await pool.query(fs.readFileSync(path.join(__dirname, 'seed-reference.sql'), 'utf8'));
+  console.log('Reference data is ready.');
+
   // Only count OUR supplier's invoices. Other members have their own rows in
   // this shared table and we must not touch or duplicate them.
   const existing = await pool.query("SELECT COUNT(*) FROM invoices WHERE supplier_id = '1'");

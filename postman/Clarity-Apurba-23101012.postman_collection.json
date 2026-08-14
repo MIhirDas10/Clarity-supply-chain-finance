@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "Clarity - Apurba Roy (23101012)",
+    "description": "Feature 01: Invoice Upload with OCR Parsing & Cloud Storage. Feature 02: Dispute Filing & Invoice Freeze. Backend: Node.js / Express with PostgreSQL (Supabase), running on port 1012 (last four digits of student id 23101012).\n\nRun the requests top to bottom. Ids created along the way are captured automatically, so nothing needs copying by hand.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base", "value": "http://127.0.0.1:1012" },
+    { "key": "invoiceNumber", "value": "INV-DEMO-9001" },
+    { "key": "newInvoiceId", "value": "" },
+    { "key": "invoiceId", "value": "5aa78bf6-ac26-456d-b918-f5118df9b5e4" },
+    { "key": "disputeId", "value": "" },
+    { "key": "evidenceId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Feature 01 - Invoice Upload with OCR Parsing",
+      "item": [
+        {
+          "name": "1. Check for a duplicate invoice number",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"invoice_number\": \"{{invoiceNumber}}\",\n  \"supplier_id\": 1\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base}}/api/invoices/check-duplicate", "host": ["{{base}}"], "path": ["api", "invoices", "check-duplicate"] },
+            "description": "Runs while the supplier is still reviewing the OCR result. Returns duplicate:false the first time. Send it again after request 2 and it returns duplicate:true - worth screenshotting both."
+          }
+        },
+        {
+          "name": "2. Upload the invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('newInvoiceId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"supplier_id\": 1,\n  \"buyer_name\": \"Apex Footwear Ltd\",\n  \"invoice_number\": \"{{invoiceNumber}}\",\n  \"invoice_amount\": 1250000,\n  \"due_date\": \"2026-11-10\",\n  \"file_url\": \"invoice.pdf\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base}}/api/invoices", "host": ["{{base}}"], "path": ["api", "invoices"] },
+            "description": "The four fields OCR extracted, after the supplier has checked them. The new id is saved automatically for requests 4, 5 and 6."
+          }
+        },
+        {
+          "name": "3. List all invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base}}/api/invoices", "host": ["{{base}}"], "path": ["api", "invoices"] }
+          }
+        },
+        {
+          "name": "4. Get one invoice",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base}}/api/invoices/{{newInvoiceId}}", "host": ["{{base}}"], "path": ["api", "invoices", "{{newInvoiceId}}"] }
+          }
+        },
+        {
+          "name": "5. Correct a field the OCR read wrongly",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"invoice_amount\": 1300000\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base}}/api/invoices/{{newInvoiceId}}", "host": ["{{base}}"], "path": ["api", "invoices", "{{newInvoiceId}}"] },
+            "description": "Only allowed while the invoice is still at the Submitted stage."
+          }
+        },
+        {
+          "name": "6. Withdraw an invoice uploaded by mistake",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base}}/api/invoices/{{newInvoiceId}}", "host": ["{{base}}"], "path": ["api", "invoices", "{{newInvoiceId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feature 02 - Dispute Filing & Invoice Freeze",
+      "item": [
+        {
+          "name": "7. File a dispute (freezes the invoice)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('disputeId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"invoice_id\": \"{{invoiceId}}\",\n  \"filed_by\": \"Apex Footwear Ltd\",\n  \"reason\": \"Goods not delivered as specified\",\n  \"notes\": \"Only 380 of 500 units arrived\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base}}/api/disputes", "host": ["{{base}}"], "path": ["api", "disputes"] },
+            "description": "Records the dispute and freezes the invoice in one transaction. Send it twice and the second returns 409 - the invoice is already frozen."
+          }
+        },
+        {
+          "name": "8. List open disputes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base}}/api/disputes?status=Open", "host": ["{{base}}"], "path": ["api", "disputes"], "query": [{ "key": "status", "value": "Open" }] }
+          }
+        },
+        {
+          "name": "9. Check whether an invoice is frozen",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base}}/api/disputes/invoice/{{invoiceId}}", "host": ["{{base}}"], "path": ["api", "disputes", "invoice", "{{invoiceId}}"] },
+            "description": "What the funding engine calls before allowing anyone to fund an invoice."
+          }
+        },
+        {
+          "name": "10. Attach a supporting document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('evidenceId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"uploaded_by\": \"Apex Footwear Ltd\",\n  \"file_url\": \"https://res.cloudinary.com/demo/delivery-note.pdf\",\n  \"note\": \"Signed delivery note\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base}}/api/disputes/{{disputeId}}/evidence", "host": ["{{base}}"], "path": ["api", "disputes", "{{disputeId}}", "evidence"] }
+          }
+        },
+        {
+          "name": "11. Get one dispute with evidence and history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base}}/api/disputes/{{disputeId}}", "host": ["{{base}}"], "path": ["api", "disputes", "{{disputeId}}"] }
+          }
+        },
+        {
+          "name": "12. Remove a document",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base}}/api/disputes/{{disputeId}}/evidence/{{evidenceId}}", "host": ["{{base}}"], "path": ["api", "disputes", "{{disputeId}}", "evidence", "{{evidenceId}}"] }
+          }
+        },
+        {
+          "name": "13. Resolve the dispute (unfreezes the invoice)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"decision\": \"released\",\n  \"resolution_note\": \"Supplier shipped the missing 120 units\",\n  \"actor\": \"admin@clarity.io\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base}}/api/disputes/{{disputeId}}/resolve", "host": ["{{base}}"], "path": ["api", "disputes", "{{disputeId}}", "resolve"] },
+            "description": "released puts the invoice back on the marketplace; voided leaves it frozen for good. Run request 9 again afterwards to show frozen has gone back to false."
+          }
+        }
+      ]
+    }
+  ]
+}

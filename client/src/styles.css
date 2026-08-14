@@ -220,6 +220,28 @@ body {
   color: var(--text-secondary);
 }
 
+/* risk bands on the discount calculator */
+.chip-band-A { background: var(--green-bg); color: var(--green); }
+.chip-band-B { background: var(--blue-bg); color: var(--blue); }
+.chip-band-C { background: var(--red-bg); color: var(--red); }
+
+/* dispute statuses */
+.chip-open     { background: var(--red-bg); color: var(--red); }
+.chip-released { background: var(--green-bg); color: var(--green); }
+.chip-voided   { background: #f1f5f9; color: var(--text-secondary); }
+
+/* dropdowns, styled to match the text inputs */
+.field select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--text-primary);
+}
+
 .chip-pending   { background: #f8fafc; color: #0f172a; }
 .chip-confirmed { background: var(--green-bg); color: var(--green); }
 .chip-disbursed { background: var(--green-bg); color: var(--green); }
@@ -917,6 +939,12 @@ h1 {
 .field-note {
   font-size: 11px;
   color: var(--green);
+  margin-top: 4px;
+}
+
+.field-warning {
+  font-size: 11px;
+  color: var(--red);
   margin-top: 4px;
 }
 

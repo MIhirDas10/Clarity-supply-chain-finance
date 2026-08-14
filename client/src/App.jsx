@@ -3,6 +3,7 @@ import Sidebar from './Sidebar.jsx';
 import InvoiceUpload from './InvoiceUpload.jsx';
 import PayoutHistory from './PayoutHistory.jsx';
 import MyInvoices from './MyInvoices.jsx';
+import DisputeCentre from './DisputeCentre.jsx';
 
 // Pages that are in the sidebar but not built yet. Showing an honest
 // placeholder is better than a link that does nothing when clicked.
@@ -29,7 +30,7 @@ function Placeholder({ name }) {
 }
 
 function App() {
-  const [page, setPage] = useState('invoices');
+  const [page, setPage] = useState('upload');
 
   return (
     <div className="app">
@@ -42,6 +43,7 @@ function App() {
         </header>
 
         <main className="content">
+          {page === 'disputes' && <DisputeCentre />}
           {page === 'upload' && <InvoiceUpload />}
           {page === 'invoices' && <MyInvoices />}
           {page === 'payouts' && <PayoutHistory />}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = 'http://localhost:1012';
 const SUPPLIER_ID = 1; // later this comes from the logged-in user
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -29,7 +29,11 @@ function formatDate(value) {
 }
 
 // "Payout Initiated" -> "chip chip-payout-initiated", so the CSS can colour it.
+// A row with no status at all would otherwise crash the whole table here.
 function chipClass(status) {
+  if (!status) {
+    return 'chip chip-unknown';
+  }
   return 'chip chip-' + status.toLowerCase().split(' ').join('-');
 }
 
@@ -135,7 +139,7 @@ function PayoutHistory() {
               <td>{invoice.buyer_name === null ? '—' : invoice.buyer_name}</td>
               <td>
                 <span className={chipClass(invoice.status)}>
-                  {invoice.status}
+                  {invoice.status || 'Unknown'}
                 </span>
               </td>
               <td className="right">{formatTaka(invoice.invoice_amount)}</td>

@@ -6,13 +6,16 @@ import {
   Clock,
   Bell,
   Settings,
+  ShieldAlert,
 } from 'lucide-react';
 
 // Same seven items, same order, same icons as Digonta's sidebar.
 // "built" marks the pages that actually exist in this app.
 export const NAV_ITEMS = [
   { key: 'invoices', label: 'Dashboard', icon: LayoutDashboard, built: true },
+  // The two features submitted for the API assignment.
   { key: 'upload', label: 'Upload Invoice', icon: Upload, built: true },
+  { key: 'disputes', label: 'Dispute Centre', icon: ShieldAlert, built: true },
   { key: 'invoices', label: 'My Invoices', icon: FileText, built: true },
   { key: 'cashflow', label: 'Cash Flow', icon: TrendingUp, built: false },
   { key: 'payouts', label: 'Payout History', icon: Clock, built: true },

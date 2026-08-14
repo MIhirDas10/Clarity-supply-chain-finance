@@ -3,15 +3,8 @@
 -- It only loads when supplier 1 has no invoices yet, so it can never
 -- duplicate rows or disturb another member's data on the shared database.
 
-INSERT INTO suppliers (id, name) VALUES (1, 'Rahman Textiles Ltd')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO funders (id, name) VALUES
-  (1, 'City Bank PLC'),
-  (2, 'BRAC Bank PLC'),
-  (3, 'IDLC Finance PLC'),
-  (4, 'LankaBangla Finance PLC')
-ON CONFLICT (id) DO NOTHING;
+-- Suppliers, funders and buyers now live in seed-reference.sql, which runs
+-- every time. This file holds only the sample invoices.
 
 -- The invoice number and amount are written twice on purpose: once into our
 -- columns (invoice_number, invoice_amount) and once into another member's
