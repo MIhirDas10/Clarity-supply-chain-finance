@@ -139,3 +139,22 @@ CREATE TRIGGER sync_invoice_columns_trigger
 -- Note: we do NOT store the discount.
 -- It is always invoice_amount - payout_amount, so we calculate it in the
 -- SELECT query instead. Storing it could let the two values disagree.
+
+-- ---------------------------------------------------------------------------
+-- Digonto's Module 2 - Buyer Invoice Confirmation & Digital Acknowledgment
+-- ---------------------------------------------------------------------------
+
+-- 1. Table to store immutable, timestamped digital acknowledgment records
+CREATE TABLE IF NOT EXISTS invoice_confirmations (
+  id                  SERIAL PRIMARY KEY,
+  invoice_id          UUID NOT NULL REFERENCES invoices(id),
+  buyer_name          TEXT NOT NULL,
+  confirmed_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  acknowledgment_text TEXT NOT NULL DEFAULT 'I, the authorized representative of the buyer entity, hereby confirm that the goods/services described in this invoice have been received in full and are accurate. I acknowledge the legally binding payment obligation for the stated amount on or before the due date.',
+  UNIQUE(invoice_id)
+);
+
+-- 2. Add tracking columns to the invoices table
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS buyer_confirmed_at TIMESTAMPTZ;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS confirmation_id INTEGER REFERENCES invoice_confirmations(id);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
