@@ -7,6 +7,7 @@ import Header from "./components/Header.jsx";
 import Dashboard from "./mihir/pages/Dashboard.jsx";              // Mihir  - Invoice Pipeline Tracker
 import InvoiceUpload from "./apurba/InvoiceUpload.jsx";           // Apurba - OCR Invoice Upload
 import MyInvoices from "./apurba/MyInvoices.jsx";                  // Apurba - My Invoices
+import DisputeCentre from "./apurba/DisputeCentre.jsx";            // Apurba - Dispute Filing & Invoice Freeze (M2)
 import PayoutHistory from "./apurba/PayoutHistory.jsx";            // Apurba - Payout History
 import InvoicesPage from "./digonto/pages/Invoices.jsx";       // Digonto - Discount Calculator (M1)
 import BuyerConfirmation from "./digonto/pages/BuyerConfirmation.jsx"; // Digonto - Buyer Confirmation (M2)
@@ -68,6 +69,7 @@ function App() {
         <Route path="/discount" element={<SupplierLayout><InvoicesPage /></SupplierLayout>} />
         <Route path="/my-invoices" element={<SupplierLayout><Content><MyInvoices /></Content></SupplierLayout>} />
         <Route path="/buyer-confirmation" element={<SupplierLayout><BuyerConfirmation /></SupplierLayout>} />
+        <Route path="/disputes" element={<SupplierLayout><Content><DisputeCentre /></Content></SupplierLayout>} />
         <Route path="/payouts" element={<SupplierLayout><Content><PayoutHistory /></Content></SupplierLayout>} />
         <Route path="/cashflow" element={<SupplierLayout><CashFlowForecast /></SupplierLayout>} />
         <Route path="/buyer-funded-offers" element={<SupplierLayout><SupplierDynamicDiscountOffers /></SupplierLayout>} />

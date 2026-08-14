@@ -204,3 +204,55 @@ CREATE TABLE IF NOT EXISTS invoice_confirmations (
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS buyer_confirmed_at TIMESTAMPTZ;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS confirmation_id INTEGER REFERENCES invoice_confirmations(id);
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+
+-- ===========================================================================
+--  FEATURE - Dispute Filing & Invoice Freeze   (Apurba Roy, SL 3)
+-- ===========================================================================
+-- frozen_at is this feature's own flag rather than a value written into the
+-- status column. The invoice status column belongs to the state machine
+-- another member owns, and only that service may write it. A separate
+-- timestamp lets a dispute freeze an invoice without breaking that rule.
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS frozen_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS disputes (
+  id              SERIAL PRIMARY KEY,
+  invoice_id      TEXT NOT NULL,   -- TEXT because the shared invoices table
+                                   -- uses uuid ids and a fresh one uses
+                                   -- integers; text accepts both
+  filed_by        TEXT NOT NULL,
+  reason          TEXT NOT NULL,
+  notes           TEXT,
+  status          TEXT NOT NULL DEFAULT 'Open',  -- Open | Released | Voided
+  resolution_note TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at     TIMESTAMPTZ
+);
+
+-- Supporting documents. A dispute can have several - a delivery note, a
+-- photograph of damaged goods, an email thread.
+CREATE TABLE IF NOT EXISTS dispute_evidence (
+  id          SERIAL PRIMARY KEY,
+  dispute_id  INTEGER NOT NULL REFERENCES disputes(id),
+  uploaded_by TEXT NOT NULL,
+  file_url    TEXT NOT NULL,
+  note        TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- "every step logged" - one row per thing that happened, never updated or
+-- deleted, so the history of a dispute cannot be rewritten after the fact.
+CREATE TABLE IF NOT EXISTS dispute_events (
+  id         SERIAL PRIMARY KEY,
+  dispute_id INTEGER NOT NULL REFERENCES disputes(id),
+  event      TEXT NOT NULL,
+  actor      TEXT NOT NULL,
+  detail     TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- An invoice can only have one open dispute at a time. Enforcing it in the
+-- database means two people clicking "dispute" at the same moment cannot
+-- both succeed, however the application code is written.
+CREATE UNIQUE INDEX IF NOT EXISTS one_open_dispute_per_invoice
+  ON disputes (invoice_id) WHERE status = 'Open';
