@@ -1,0 +1,998 @@
+/* Clarity B2B - light theme.
+   Colours copied from Digonta's globals.css so both apps look the same. */
+
+:root {
+  --sidebar-bg: #f8fafc;
+  --sidebar-active: #0f172a;
+  --page-bg: #f8fafc;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --green: #047857;
+  --green-bg: #ecfdf5;
+  --red: #ef4444;
+  --red-bg: #fef2f2;
+  --blue: #3b82f6;
+  --blue-bg: #eff6ff;
+}
+
+/* No global reset here.
+   This file is loaded after Tailwind, and it is NOT inside a @layer. In CSS
+   cascade layers an unlayered rule beats a layered one whatever its
+   specificity, so a "* { margin: 0 }" here would silently override every
+   Tailwind margin and padding utility in the whole app - including the
+   ml-[250px] that holds the page clear of the fixed sidebar.
+
+   Tailwind's own preflight already resets margins, padding and box-sizing,
+   so nothing is lost by leaving it out. Only the headings and paragraphs
+   used by these pages are reset below, by name. */
+
+h1, h2, h3, p, ul, ol, table {
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- app shell ---------- */
+
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* flex: 0 0 250px is "do not grow, do not shrink, stay 250px wide".
+   Without the shrink rule the sidebar gets squashed by the page content.
+   Background is --sidebar-bg, the same value Digonta uses. */
+.sidebar {
+  flex: 0 0 250px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-logo {
+  padding: 20px 20px 8px;
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.logo-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-text {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+
+.logo-portal {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.logo-account {
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.sidebar-cta {
+  padding: 12px 16px;
+}
+
+.cta-button {
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cta-button:hover {
+  opacity: 0.9;
+}
+
+.nav {
+  flex: 1;
+  padding: 4px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--sidebar-hover);
+}
+
+.nav-item.active {
+  background: var(--sidebar-active);
+  color: #ffffff;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--text-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-name {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.user-email {
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+/* ---------- panel heading (matches his "Invoice Monitoring" card) ---------- */
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.panel-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--blue-bg);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panel-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* risk bands on the discount calculator */
+.chip-band-A { background: var(--green-bg); color: var(--green); }
+.chip-band-B { background: var(--blue-bg); color: var(--blue); }
+.chip-band-C { background: var(--red-bg); color: var(--red); }
+
+/* dispute statuses */
+.chip-open     { background: var(--red-bg); color: var(--red); }
+.chip-released { background: var(--green-bg); color: var(--green); }
+.chip-voided   { background: #f1f5f9; color: var(--text-secondary); }
+
+/* dropdowns, styled to match the text inputs */
+.field select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--text-primary);
+}
+
+.chip-pending   { background: #f8fafc; color: #0f172a; }
+.chip-confirmed { background: var(--green-bg); color: var(--green); }
+.chip-disbursed { background: var(--green-bg); color: var(--green); }
+.chip-rejected  { background: var(--red-bg); color: var(--red); }
+.chip-unknown   { background: #f1f5f9; color: var(--text-secondary); }
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar {
+  height: 60px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.topbar-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Stops the table and cards stretching to silly widths on a big monitor. */
+.content {
+  padding: 28px;
+  width: 100%;
+  max-width: 1280px;
+  overflow-x: auto;
+}
+
+/* ---------- page header ---------- */
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  gap: 16px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.button {
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- page header, matching Digonta's Invoices page ---------- */
+
+.page-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.btn-outline,
+.btn-gradient {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-outline {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  background: #f8fafc;
+}
+
+.btn-gradient {
+  border: none;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  color: #ffffff;
+}
+
+.btn-gradient:hover {
+  filter: brightness(1.1);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* ---------- four stat cards ---------- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 1100px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: 1fr; }
+}
+
+.stat-card {
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  border-radius: 12px;
+  border-left: 4px solid var(--border);
+  padding: 18px 20px;
+}
+
+.stat-green  { border-left-color: var(--green); }
+.stat-blue   { border-left-color: var(--blue); }
+.stat-slate  { border-left-color: #0f172a; }
+.stat-teal   { border-left-color: #0d9488; }
+
+.stat-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon-green { background: var(--green-bg); color: var(--green); }
+.stat-icon-blue  { background: var(--blue-bg); color: var(--blue); }
+.stat-icon-slate { background: #f8fafc; color: #0f172a; }
+.stat-icon-teal  { background: #f0fdfa; color: #0d9488; }
+
+.stat-change {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.empty-row {
+  text-align: center;
+  padding: 48px 16px !important;
+  color: var(--text-muted);
+}
+
+/* ---------- upload form card (Digonta's InvoiceForm) ---------- */
+
+.form-card {
+  padding: 24px;
+  margin-bottom: 22px;
+}
+
+.form-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.form-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 820px) {
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+.field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.label-optional {
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--text-primary);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+}
+
+/* ---------- early payment discount slider ---------- */
+
+.discount-box {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid rgba(249, 115, 22, 0.15);
+}
+
+.discount-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.discount-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(249, 115, 22, 0.15);
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.discount-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.discount-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.slider-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.slider-caption {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.slider-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.clarity-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+
+.clarity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+}
+
+.clarity-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+}
+
+.discount-result {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.discount-result strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.discount-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.form-submit {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submit-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.submit-button:hover { filter: brightness(1.1); }
+.submit-button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- payout history summary cards ---------- */
+
+.cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.card {
+  flex: 1;
+  min-width: 200px;
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  border-radius: 12px;
+  border-left: 4px solid #0f172a;
+  padding: 18px 20px;
+}
+
+.card-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.card-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.card-green { border-left-color: var(--green); }
+.card-blue  { border-left-color: var(--blue); }
+
+/* ---------- table ---------- */
+
+.panel {
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Header row is tinted, matching Digonta's invoice table. */
+.ledger thead tr {
+  background: #f8fafc;
+}
+
+.ledger th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 12px 16px;
+  white-space: nowrap;
+}
+
+.ledger td {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-light);
+  white-space: nowrap;
+}
+
+.ledger tbody tr:hover {
+  background: #f8fafc;
+}
+
+.right { text-align: right; }
+
+.invoice-number { font-weight: 600; }
+
+.received { font-weight: 600; }
+.discount { color: var(--text-secondary); }
+.buyer { color: var(--text-secondary); }
+
+/* An empty cell (no funder or payout yet) is shown as a faint dash. */
+.empty { color: var(--text-muted); }
+
+/* ---------- status badges ---------- */
+
+.chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip-completed { background: var(--green-bg); color: var(--green); }
+.chip-payout-initiated,
+.chip-funded { background: var(--blue-bg); color: var(--blue); }
+.chip-buyer-confirmed { background: var(--blue-bg); color: var(--blue); }
+.chip-submitted { background: #f1f5f9; color: var(--text-secondary); }
+.chip-disputed { background: var(--red-bg); color: var(--red); }
+
+/* ---------- upload page ---------- */
+
+.upload-grid {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.upload-col {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+.dropzone {
+  display: block;
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone:hover {
+  border-color: #94a3b8;
+  background: #fcfdff;
+}
+
+.dropzone-icon {
+  display: block;
+  font-size: 26px;
+  margin-bottom: 8px;
+}
+
+.dropzone.dragging {
+  border-color: #0f172a;
+  background: #f1f5f9;
+}
+
+.dropzone-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.dropzone-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.preview {
+  margin-top: 14px;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.progress-track {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #0f172a;
+}
+
+.progress-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.form-panel {
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.form-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: #fff;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+}
+
+.field-note {
+  font-size: 11px;
+  color: var(--green);
+  margin-top: 4px;
+}
+
+.field-warning {
+  font-size: 11px;
+  color: var(--red);
+  margin-top: 4px;
+}
+
+.raw-text {
+  margin-top: 16px;
+}
+
+.raw-text summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.raw-text pre {
+  margin-top: 8px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* ---------- messages ---------- */
+
+.row-count {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+.message {
+  padding: 28px;
+  color: var(--text-secondary);
+}
+
+.message.error { color: var(--red); }
+
+.banner {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.banner-ok { background: var(--green-bg); color: var(--green); }
+.banner-bad { background: var(--red-bg); color: var(--red); }
