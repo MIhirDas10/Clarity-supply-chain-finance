@@ -6,6 +6,7 @@ import {
   FileText,
   Clock,
   TrendingUp,
+  Banknote,
   Bell,
   Settings,
   CheckSquare,
@@ -21,6 +22,7 @@ const navItems = [
   { label: "Buyer Confirmation", to: "/buyer-confirmation", icon: CheckSquare, built: true }, // Digonto M2
   { label: "Payout History", to: "/payouts", icon: Clock, built: true },            // Apurba
   { label: "Cash Flow", to: "/cashflow", icon: TrendingUp, built: true },           // Ameet
+  { label: "Buyer-Funded Offers", to: "/buyer-funded-offers", icon: Banknote, built: true },  // Ameet M2
   { label: "Notifications", to: "/notifications", icon: Bell, built: false },
   { label: "Settings", to: "/settings", icon: Settings, built: false },
 ];

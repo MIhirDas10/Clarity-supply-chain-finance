@@ -92,6 +92,52 @@ CREATE TABLE IF NOT EXISTS invoice_history (
 );
 
 -- ---------------------------------------------------------------------------
+-- Module 2: Dynamic Discounting (Buyer-Funded Early Payment).
+--
+-- A buyer with surplus cash can offer early payment on confirmed invoices. The
+-- supplier then accepts or declines. On acceptance the invoice is settled from
+-- the buyer directly, so funder_id remains NULL and the payout values are
+-- copied back onto invoices for the existing payout/cashflow screens.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dynamic_discount_offers (
+  id                  SERIAL PRIMARY KEY,
+  invoice_id           TEXT NOT NULL,
+  buyer_name           TEXT NOT NULL,
+  discount_rate        NUMERIC(6, 4) NOT NULL,
+  platform_fee_rate    NUMERIC(6, 4) NOT NULL DEFAULT 0.0050,
+  invoice_amount       NUMERIC(12, 2) NOT NULL,
+  discount_amount      NUMERIC(12, 2) NOT NULL,
+  supplier_payout      NUMERIC(12, 2) NOT NULL,
+  platform_fee         NUMERIC(12, 2) NOT NULL,
+  buyer_return         NUMERIC(12, 2) NOT NULL,
+  status               TEXT NOT NULL DEFAULT 'Offered',
+  offered_at           TIMESTAMPTZ DEFAULT NOW(),
+  responded_at         TIMESTAMPTZ,
+  settled_at           TIMESTAMPTZ
+);
+
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS invoice_id        TEXT;
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS buyer_name        TEXT;
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS discount_rate     NUMERIC(6, 4);
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS platform_fee_rate NUMERIC(6, 4) DEFAULT 0.0050;
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS invoice_amount    NUMERIC(12, 2);
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS discount_amount   NUMERIC(12, 2);
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS supplier_payout   NUMERIC(12, 2);
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS platform_fee      NUMERIC(12, 2);
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS buyer_return      NUMERIC(12, 2);
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS status            TEXT DEFAULT 'Offered';
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS offered_at        TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS responded_at      TIMESTAMPTZ;
+ALTER TABLE dynamic_discount_offers ADD COLUMN IF NOT EXISTS settled_at        TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_dynamic_discount_offers_invoice_id
+  ON dynamic_discount_offers(invoice_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_discount_one_open_offer
+  ON dynamic_discount_offers(invoice_id)
+  WHERE status = 'Offered';
+
+-- ---------------------------------------------------------------------------
 -- Three members ended up with three names for the same three values:
 --
 --     invoice_number / number        the invoice's reference

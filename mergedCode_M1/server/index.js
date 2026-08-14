@@ -20,6 +20,7 @@ const invoiceRoutes = require('./routes/invoiceRoutes');   // Apurba (pg)
 const pipelineRoutes = require('./routes/pipelineRoutes');  // Mihir (Supabase)
 const cashflowRoutes = require('./routes/cashflowRoutes');  // Ameet (Cash Flow Forecast Engine)
 const confirmationRoutes = require('./routes/confirmationRoutes'); // Digonto (M2 Confirmations)
+const dynamicDiscountingRoutes = require('./routes/dynamicDiscountingRoutes'); // Module 2
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
@@ -41,6 +42,9 @@ app.use('/api/cashflow', cashflowRoutes);
 
 // Digonto - Module 2 Buyer Confirmation
 app.use('/api/confirmations', confirmationRoutes);
+
+// Module 2 - buyer-funded early payment offers
+app.use('/api/dynamic-discounting', dynamicDiscountingRoutes);
 
 // Mihir - invoice status pipeline (kept under its own prefix to avoid clashing
 // with Apurba's /api/invoices). The client calls /api/pipeline/invoices...
