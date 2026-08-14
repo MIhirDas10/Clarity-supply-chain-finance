@@ -3,17 +3,22 @@
   "info": {
     "title": "Clarity B2B API",
     "version": "1.0.0",
-    "description": "API documentation for the Clarity Supply Chain Finance backend."
+    "description": "API documentation for the Clarity Supply Chain Finance backend. This covers the Invoice Pipeline and Supplier Health Analytics modules."
   },
   "servers": [
     {
-      "url": "http://localhost:5000",
+      "url": "http://localhost:5001",
       "description": "Local Development Server"
     }
   ],
+  "tags": [
+    { "name": "Pipeline", "description": "Invoice Status Pipeline operations" },
+    { "name": "Health", "description": "Supplier Health & Distress Analytics operations" }
+  ],
   "paths": {
-    "/api/invoices": {
+    "/api/pipeline/invoices": {
       "get": {
+        "tags": ["Pipeline"],
         "summary": "Get all invoices",
         "description": "Fetches a list of all invoices and their status history.",
         "responses": {
@@ -23,8 +28,9 @@
         }
       },
       "post": {
+        "tags": ["Pipeline"],
         "summary": "Create a new invoice",
-        "description": "Creates a new invoice record in the system.",
+        "description": "Creates a new invoice record in the system pipeline.",
         "responses": {
           "201": {
             "description": "Invoice created successfully"
@@ -32,8 +38,9 @@
         }
       }
     },
-    "/api/invoices/{id}/status": {
+    "/api/pipeline/invoices/{id}/status": {
       "get": {
+        "tags": ["Pipeline"],
         "summary": "Get invoice status",
         "description": "Get the current pipeline status for a specific invoice.",
         "parameters": [
@@ -53,8 +60,9 @@
         }
       },
       "patch": {
+        "tags": ["Pipeline"],
         "summary": "Update invoice status",
-        "description": "Move the invoice forward in the pipeline.",
+        "description": "Move the invoice forward in the pipeline and recalculate supplier health.",
         "parameters": [
           {
             "name": "id",
@@ -76,6 +84,10 @@
                     "type": "string",
                     "example": "Funded"
                   },
+                  "actorName": {
+                    "type": "string",
+                    "example": "Admin"
+                  },
                   "supplierPhone": {
                     "type": "string",
                     "example": "+8801711223344"
@@ -89,6 +101,162 @@
           "200": {
             "description": "Invoice updated successfully"
           }
+        }
+      }
+    },
+    "/api/health/suppliers": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "List all suppliers' health",
+        "description": "Returns every supplier with their computed health score and band.",
+        "parameters": [
+          {
+            "name": "buyer",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Optional buyer name to filter suppliers."
+          }
+        ],
+        "responses": {
+          "200": { "description": "JSON array of supplier analytics" }
+        }
+      }
+    },
+    "/api/health/suppliers/{id}": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get specific supplier's health",
+        "description": "Returns full health detail (signals, reasons, band) for a specific supplier.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Supplier health details" },
+          "404": { "description": "Supplier not found" }
+        }
+      }
+    },
+    "/api/health/suppliers/{id}/watchlist": {
+      "post": {
+        "tags": ["Health"],
+        "summary": "Toggle supplier on watchlist",
+        "description": "Adds or removes a supplier from the buyer's review watchlist.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Successfully toggled watchlist status" }
+        }
+      }
+    },
+    "/api/health/summary": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get health summary",
+        "description": "Returns counts and percentages of suppliers in each band.",
+        "parameters": [
+          {
+            "name": "buyer",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "JSON object with summary statistics" }
+        }
+      }
+    },
+    "/api/health/recalculate": {
+      "post": {
+        "tags": ["Health"],
+        "summary": "Recalculate all health scores",
+        "description": "Force a recalculation of all supplier health scores, potentially triggering distress alerts.",
+        "responses": {
+          "200": { "description": "Recalculation successful" }
+        }
+      }
+    },
+    "/api/health/alerts": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get distress alerts",
+        "description": "Lists all distress alerts, newest first.",
+        "responses": {
+          "200": { "description": "JSON array of alerts" }
+        }
+      }
+    },
+    "/api/health/alerts/{id}/acknowledge": {
+      "patch": {
+        "tags": ["Health"],
+        "summary": "Acknowledge alert",
+        "description": "Marks a specific alert as read (seen by the buyer).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Alert acknowledged" },
+          "404": { "description": "Alert not found" }
+        }
+      }
+    },
+    "/api/health/watchlist": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get watchlisted suppliers",
+        "description": "Returns only the suppliers currently on the buyer's watchlist.",
+        "responses": {
+          "200": { "description": "JSON array of watchlisted suppliers" }
+        }
+      }
+    },
+    "/api/health/config": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get health scoring configuration",
+        "description": "Show the current band thresholds.",
+        "responses": {
+          "200": { "description": "JSON object containing watchBelow and distressBelow" }
+        }
+      },
+      "patch": {
+        "tags": ["Health"],
+        "summary": "Update health scoring configuration",
+        "description": "Update the band thresholds for Watch and Distress.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "watchBelow": { "type": "number", "example": 80 },
+                  "distressBelow": { "type": "number", "example": 60 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Configuration updated successfully" },
+          "400": { "description": "Invalid thresholds" }
         }
       }
     }
