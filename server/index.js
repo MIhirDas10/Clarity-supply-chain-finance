@@ -22,6 +22,8 @@ const payoutRoutes = require('./routes/payoutRoutes');     // Apurba - payout le
 const pipelineRoutes = require('./routes/pipelineRoutes');  // Mihir (Supabase)
 const healthRoutes = require('./routes/healthRoutes');      // Mihir - Supplier Health Analytics
 const notificationRoutes = require('./routes/notificationRoutes'); // Mihir - Notification Center
+const portfolioRoutes = require('./routes/portfolioRoutes');       // Mihir - Investor Portfolio Analytics
+const creditRoutes = require('./routes/creditRoutes');             // Mihir - Buyer Credit Scoring
 const cashflowRoutes = require('./routes/cashflowRoutes');  // Ameet (Cash Flow Forecast Engine)
 const confirmationRoutes = require('./routes/confirmationRoutes'); // Digonto (M2 Confirmations)
 const dynamicDiscountingRoutes = require('./routes/dynamicDiscountingRoutes'); // Module 2
@@ -63,6 +65,12 @@ app.use('/api/health', healthRoutes);
 
 // Mihir - In-App Notification Center (read + mark-as-read)
 app.use('/api/notifications', notificationRoutes);
+
+// Mihir - Investor Portfolio & Returns Analytics
+app.use('/api/portfolio', portfolioRoutes);
+
+// Mihir - Buyer Credit Scoring Engine
+app.use('/api/credit', creditRoutes);
 
 app.get('/', (req, res) => {
   res.json({ status: 'Clarity B2B API is running', docs: '/api-docs' });

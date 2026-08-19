@@ -5,8 +5,9 @@ import DisputeModal from "../components/DisputeModal.jsx";
 
 // Simulated buyers for the dropdown (since no auth yet)
 const BUYERS = [
-  "Global Retailers",
+  "Apex Footwear Ltd",
   "Pran-RFL Group",
+  "Global Retailers",
   "Unilever BD",
   "Beximco Pharma",
   "Walton Group",

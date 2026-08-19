@@ -9,5 +9,8 @@
     "dev": "echo Run the server and client in separate terminals: \"npm run dev:server\"  and  \"npm run dev:client\"",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev"
+  },
+  "dependencies": {
+    "puppeteer": "^25.8.0"
   }
 }

@@ -327,3 +327,24 @@ INSERT INTO supplier_names (supplier_id, name) VALUES
   ('SUP-202', 'Jamuna Fabrics'),
   ('SUP-004', 'Karnaphuli Traders')
 ON CONFLICT (supplier_id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Mihir's Buyer Credit Scoring Engine.
+--   buyer_credit_score    latest score/rating per buyer (read by other features)
+--   buyer_credit_history  one row per score change, with a reason (transparency)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS buyer_credit_score (
+  buyer_name TEXT PRIMARY KEY,
+  score      INTEGER,
+  rating     TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS buyer_credit_history (
+  id         SERIAL PRIMARY KEY,
+  buyer_name TEXT,
+  score      INTEGER,
+  old_score  INTEGER,
+  reason     TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

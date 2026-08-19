@@ -11,21 +11,24 @@ import {
   Settings,
   CheckSquare,
   ShieldAlert,
+  LayoutDashboard,
 } from "lucide-react";
 
 // One sidebar for the whole platform. Each "built" item routes to a feature a
 // group member owns; the rest are honest placeholders for work not done yet.
 const navItems = [
-  { label: "Upload Invoice", to: "/upload", icon: Upload, built: true },            // Apurba
-  { label: "Discount Calculator", to: "/discount", icon: Zap, built: true },        // Digonto
-  { label: "My Invoices", to: "/my-invoices", icon: FileText, built: true },        // Apurba
-  { label: "Invoice Pipeline", to: "/pipeline", icon: Activity, built: true },      // Mihir
-  { label: "Supplier Health", to: "/health", icon: Activity, built: true },         // Mihir
-  { label: "Buyer Confirmation", to: "/buyer-confirmation", icon: CheckSquare, built: true }, // Digonto M2
-  { label: "Dispute Centre", to: "/disputes", icon: ShieldAlert, built: true },     // Apurba M2
-  { label: "Payout History", to: "/payouts", icon: Clock, built: true },            // Apurba
-  { label: "Cash Flow", to: "/cashflow", icon: TrendingUp, built: true },           // Ameet
-  { label: "Buyer-Funded Offers", to: "/buyer-funded-offers", icon: Banknote, built: true },  // Ameet M2
+  { label: "Dashboard", to: "/portfolio", icon: LayoutDashboard, built: true },
+  { label: "Invoice Pipeline", to: "/pipeline", icon: Activity, built: true },
+  { label: "Supplier Health", to: "/health", icon: Activity, built: true },
+  { label: "Buyer Credit", to: "/credit", icon: Activity, built: true },
+  { label: "Upload Invoice", to: "/upload", icon: Upload, built: true },
+  { label: "Discount Calculator", to: "/discount", icon: Zap, built: true },
+  { label: "My Invoices", to: "/my-invoices", icon: FileText, built: true },
+  { label: "Buyer Confirmation", to: "/buyer-confirmation", icon: CheckSquare, built: true },
+  { label: "Dispute Centre", to: "/disputes", icon: ShieldAlert, built: true },
+  { label: "Payout History", to: "/payouts", icon: Clock, built: true },
+  { label: "Cash Flow", to: "/cashflow", icon: TrendingUp, built: true },
+  { label: "Buyer-Funded Offers", to: "/buyer-funded-offers", icon: Banknote, built: true },
   { label: "Notifications", to: "/notifications", icon: Bell, built: true },
   { label: "Settings", to: "/settings", icon: Settings, built: false },
 ];

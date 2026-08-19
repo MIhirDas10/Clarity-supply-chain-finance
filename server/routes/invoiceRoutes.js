@@ -243,4 +243,122 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Confirmations API (Buyer Confirmation)
+// ---------------------------------------------------------------------------
+router.get('/confirmations/pending', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM invoices WHERE status = 'Submitted' AND buyer_name = $1 ORDER BY id DESC`,
+      [req.query.buyer]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/confirmations/history', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM invoices WHERE status IN ('Buyer Confirmed', 'Disputed') AND buyer_name = $1 ORDER BY id DESC`,
+      [req.query.buyer]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/confirmations/:id/confirm', async (req, res) => {
+  try {
+    const { buyer_name, acknowledgment_text } = req.body;
+    const invoiceId = req.params.id;
+    
+    // Update invoice status
+    const result = await pool.query(
+      "UPDATE invoices SET status = 'Buyer Confirmed', current_stage = 'Buyer Confirmed' WHERE id = $1 AND buyer_name = $2 RETURNING *",
+      [invoiceId, buyer_name]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Invoice not found or unauthorized' });
+    }
+
+    res.status(200).json({ message: 'Invoice confirmed successfully', invoice: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Disputes API (In-Memory for M2 Demo)
+// ---------------------------------------------------------------------------
+let disputesDB = [
+  {
+    id: 1001,
+    invoice_id: "INV-2026-1069",
+    filed_by: "Nova Retail Group",
+    reason: "Goods damaged during transit",
+    notes: "Three pallets were crushed",
+    status: "Open",
+    evidence: [],
+    events: [{ id: Date.now(), event: 'Dispute filed', actor: "Nova Retail Group" }]
+  }
+];
+let disputeIdCounter = 1002;
+
+router.get('/disputes', (req, res) => {
+  res.json(disputesDB);
+});
+
+router.get('/disputes/:id', (req, res) => {
+  const d = disputesDB.find(x => x.id == req.params.id);
+  if (d) res.json(d);
+  else res.status(404).json({ message: 'Not found' });
+});
+
+router.post('/disputes', async (req, res) => {
+  const d = {
+    id: disputeIdCounter++,
+    invoice_id: req.body.invoice_id,
+    filed_by: req.body.filed_by,
+    reason: req.body.reason,
+    notes: req.body.notes,
+    status: 'Open',
+    evidence: [],
+    events: [{ id: Date.now(), event: 'Dispute filed', actor: req.body.filed_by }]
+  };
+  disputesDB.push(d);
+  // Also update invoice status
+  await pool.query("UPDATE invoices SET status = 'Disputed', current_stage = 'Disputed' WHERE id = $1", [req.body.invoice_id]);
+  res.status(201).json(d);
+});
+
+router.post('/disputes/:id/evidence', (req, res) => {
+  const d = disputesDB.find(x => x.id == req.params.id);
+  if (!d) return res.status(404).json({ message: 'Not found' });
+  d.evidence.push({
+    id: Date.now(),
+    file_url: req.body.file_url,
+    note: req.body.note,
+    uploaded_by: req.body.uploaded_by
+  });
+  d.events.push({ id: Date.now(), event: 'Evidence added', actor: req.body.uploaded_by });
+  res.json(d);
+});
+
+router.patch('/disputes/:id/resolve', async (req, res) => {
+  const d = disputesDB.find(x => x.id == req.params.id);
+  if (!d) return res.status(404).json({ message: 'Not found' });
+  
+  d.status = req.body.decision === 'released' ? 'Released' : 'Voided';
+  d.events.push({ id: Date.now(), event: 'Resolved: ' + d.status, actor: req.body.actor });
+  
+  const newStatus = req.body.decision === 'released' ? 'Submitted' : 'Voided';
+  await pool.query("UPDATE invoices SET status = $1, current_stage = $1 WHERE id = $2", [newStatus, d.invoice_id]);
+  
+  res.json(d);
+});
+
 module.exports = router;
