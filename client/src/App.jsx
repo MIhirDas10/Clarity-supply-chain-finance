@@ -22,6 +22,9 @@ import SupplierDynamicDiscountOffers from "./ameet/SupplierDynamicDiscountOffers
 import SupplierHealth from "./mihir/pages/SupplierHealth.jsx"; // Mihir - Supplier Health Analytics
 import Notifications from "./mihir/pages/Notifications.jsx"; // Mihir - Notification Center
 
+import Portfolio from "./mihir/pages/Portfolio.jsx";                // Mihir - Investor Portfolio Dashboard
+import BuyerCredit from "./mihir/pages/BuyerCredit.jsx";            // Mihir - Buyer Credit Scoring
+
 function SupplierLayout({ children }) {
   return (
     <div
@@ -30,8 +33,7 @@ function SupplierLayout({ children }) {
     >
       <Sidebar />
       <div className="flex-1 ml-[250px] flex flex-col relative">
-        <Header />
-        <main className="flex-1 overflow-x-hidden relative">{children}</main>
+        <main className="flex-1 overflow-x-hidden relative p-8">{children}</main>
       </div>
     </div>
   );
@@ -45,8 +47,7 @@ function BuyerLayout({ children }) {
     >
       <BuyerSidebar />
       <div className="flex-1 ml-[250px] flex flex-col relative">
-        <Header />
-        <main className="flex-1 overflow-x-hidden relative">{children}</main>
+        <main className="flex-1 overflow-x-hidden relative p-8">{children}</main>
       </div>
     </div>
   );
@@ -79,9 +80,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/pipeline" replace />} />
+        <Route path="/" element={<Navigate to="/portfolio" replace />} />
 
         {/* Supplier Routes */}
+<<<<<<< Updated upstream
         <Route
           path="/pipeline"
           element={
@@ -188,6 +190,22 @@ function App() {
             </SupplierLayout>
           }
         />
+=======
+        <Route path="/portfolio" element={<SupplierLayout><Portfolio /></SupplierLayout>} />
+        <Route path="/pipeline" element={<SupplierLayout><Dashboard /></SupplierLayout>} />
+        <Route path="/upload" element={<SupplierLayout><Content><InvoiceUpload /></Content></SupplierLayout>} />
+        <Route path="/discount" element={<SupplierLayout><InvoicesPage /></SupplierLayout>} />
+        <Route path="/my-invoices" element={<SupplierLayout><Content><MyInvoices /></Content></SupplierLayout>} />
+        <Route path="/buyer-confirmation" element={<SupplierLayout><BuyerConfirmation /></SupplierLayout>} />
+        <Route path="/disputes" element={<SupplierLayout><Content><DisputeCentre /></Content></SupplierLayout>} />
+        <Route path="/payouts" element={<SupplierLayout><Content><PayoutHistory /></Content></SupplierLayout>} />
+        <Route path="/cashflow" element={<SupplierLayout><CashFlowForecast /></SupplierLayout>} />
+        <Route path="/buyer-funded-offers" element={<SupplierLayout><SupplierDynamicDiscountOffers /></SupplierLayout>} />
+        <Route path="/health" element={<SupplierLayout><Content><SupplierHealth /></Content></SupplierLayout>} />
+        <Route path="/credit" element={<SupplierLayout><BuyerCredit /></SupplierLayout>} />
+        <Route path="/notifications" element={<SupplierLayout><Notifications /></SupplierLayout>} />
+        <Route path="/settings" element={<SupplierLayout><Placeholder name="Settings" /></SupplierLayout>} />
+>>>>>>> Stashed changes
 
         {/* Buyer Routes */}
         <Route
@@ -203,7 +221,7 @@ function App() {
           }
         />
 
-        <Route path="*" element={<Navigate to="/pipeline" replace />} />
+        <Route path="*" element={<Navigate to="/portfolio" replace />} />
       </Routes>
     </Router>
   );

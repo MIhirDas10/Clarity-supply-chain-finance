@@ -3,7 +3,7 @@
 -- It only loads when supplier 1 has no invoices yet, so it can never
 -- duplicate rows or disturb another member's data on the shared database.
 
-INSERT INTO suppliers (id, name) VALUES (1, 'Rahman Textiles Ltd')
+INSERT INTO suppliers (id, name) VALUES (1, 'Rahman Textiles Ltd'), (2, 'Random Textiles Ltd')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO funders (id, name) VALUES
@@ -58,6 +58,10 @@ FROM (VALUES
   -- A disputed invoice is frozen and taken off the funder marketplace, so it
   -- genuinely has no funder and no payout. This is the row that proves the
   -- ledger uses a LEFT JOIN - a plain JOIN would drop it entirely.
-  (1, 'Nova Retail Group', 'INV-2026-1069', 2260000.00, DATE '2026-11-05', DATE '2026-08-07', 'Disputed',         NULL, NULL,       NULL)
+  (1, 'Nova Retail Group', 'INV-2026-1069', 2260000.00, DATE '2026-11-05', DATE '2026-08-07', 'Disputed',         NULL, NULL,       NULL),
+  
+  -- Random Textiles Ltd (Supplier 2) mock invoices for testing
+  (2, 'Test Buyer Corp',   'INV-2026-2001', 1500000.00, DATE '2026-12-01', DATE '2026-08-15', 'Completed',        3,    1450000.00, DATE '2026-08-20'),
+  (2, 'Test Buyer Corp',   'INV-2026-2002',  750000.00, DATE '2026-12-15', DATE '2026-08-15', 'Submitted',       NULL,   720000.00, NULL)
 ) AS v (supplier_id, buyer_name, invoice_number, invoice_amount, due_date,
         submitted_date, status, funder_id, payout_amount, payment_date);

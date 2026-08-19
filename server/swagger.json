@@ -104,15 +104,23 @@
         }
       }
     },
+<<<<<<< Updated upstream
     "/api/health/suppliers": {
       "get": {
         "tags": ["Health"],
         "summary": "List all suppliers' health",
         "description": "Returns every supplier with their computed health score and band.",
+=======
+    "/api/confirmations/pending": {
+      "get": {
+        "summary": "Get pending confirmations",
+        "description": "Get a list of invoices that require buyer confirmation.",
+>>>>>>> Stashed changes
         "parameters": [
           {
             "name": "buyer",
             "in": "query",
+<<<<<<< Updated upstream
             "required": false,
             "schema": { "type": "string" },
             "description": "Optional buyer name to filter suppliers."
@@ -165,10 +173,31 @@
         "tags": ["Health"],
         "summary": "Get health summary",
         "description": "Returns counts and percentages of suppliers in each band.",
+=======
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the buyer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A JSON array of pending invoices"
+          }
+        }
+      }
+    },
+    "/api/confirmations/history": {
+      "get": {
+        "summary": "Get confirmation history",
+        "description": "Get a list of invoices that have already been confirmed or disputed by the buyer.",
+>>>>>>> Stashed changes
         "parameters": [
           {
             "name": "buyer",
             "in": "query",
+<<<<<<< Updated upstream
             "required": false,
             "schema": { "type": "string" }
           }
@@ -203,11 +232,32 @@
         "tags": ["Health"],
         "summary": "Acknowledge alert",
         "description": "Marks a specific alert as read (seen by the buyer).",
+=======
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the buyer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A JSON array of processed invoices"
+          }
+        }
+      }
+    },
+    "/api/confirmations/{id}/confirm": {
+      "post": {
+        "summary": "Confirm an invoice",
+        "description": "Confirm an invoice as a buyer, moving it to 'Buyer Confirmed' status.",
+>>>>>>> Stashed changes
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+<<<<<<< Updated upstream
             "schema": { "type": "string" }
           }
         ],
@@ -240,6 +290,13 @@
         "tags": ["Health"],
         "summary": "Update health scoring configuration",
         "description": "Update the band thresholds for Watch and Distress.",
+=======
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+>>>>>>> Stashed changes
         "requestBody": {
           "required": true,
           "content": {
@@ -247,16 +304,190 @@
               "schema": {
                 "type": "object",
                 "properties": {
+<<<<<<< Updated upstream
                   "watchBelow": { "type": "number", "example": 80 },
                   "distressBelow": { "type": "number", "example": 60 }
+=======
+                  "buyer_name": {
+                    "type": "string"
+                  },
+                  "acknowledgment_text": {
+                    "type": "string"
+                  }
+>>>>>>> Stashed changes
                 }
               }
             }
           }
         },
         "responses": {
+<<<<<<< Updated upstream
           "200": { "description": "Configuration updated successfully" },
           "400": { "description": "Invalid thresholds" }
+=======
+          "200": {
+            "description": "Invoice confirmed successfully"
+          },
+          "404": {
+            "description": "Invoice not found or unauthorized"
+          }
+        }
+      }
+    },
+    "/api/disputes": {
+      "get": {
+        "summary": "Get all disputes",
+        "description": "Get a list of all filed disputes.",
+        "responses": {
+          "200": {
+            "description": "A JSON array of disputes"
+          }
+        }
+      },
+      "post": {
+        "summary": "File a new dispute",
+        "description": "File a dispute against an invoice, freezing it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "invoice_id": {
+                    "type": "string"
+                  },
+                  "filed_by": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dispute filed successfully"
+          }
+        }
+      }
+    },
+    "/api/disputes/{id}": {
+      "get": {
+        "summary": "Get dispute details",
+        "description": "Get the details of a specific dispute.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dispute details"
+          },
+          "404": {
+            "description": "Dispute not found"
+          }
+        }
+      }
+    },
+    "/api/disputes/{id}/evidence": {
+      "post": {
+        "summary": "Add evidence to a dispute",
+        "description": "Upload a document link to support an open dispute.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uploaded_by": {
+                    "type": "string"
+                  },
+                  "file_url": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evidence added successfully"
+          },
+          "404": {
+            "description": "Dispute not found"
+          }
+        }
+      }
+    },
+    "/api/disputes/{id}/resolve": {
+      "patch": {
+        "summary": "Resolve a dispute",
+        "description": "Release the invoice back to the marketplace or void it entirely.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": ["released", "voided"]
+                  },
+                  "actor": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dispute resolved successfully"
+          },
+          "404": {
+            "description": "Dispute not found"
+          }
+>>>>>>> Stashed changes
         }
       }
     }
