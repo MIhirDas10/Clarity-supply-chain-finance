@@ -1,6 +1,6 @@
 // Clarity - Cash Flow Forecast Engine API (Ameet Faisal - Module 1 / SL 4)
 //
-// GET /api/cashflow/forecast?supplierId=1
+// GET /api/cashflow/forecast
 //
 // Computes a 30-, 60-, and 90-day forward cash flow forecast for a supplier's account.
 // Branches between discounted early-payout amounts and full-term maturity amounts.
@@ -13,7 +13,14 @@ const EARLY_DISCOUNT_RATE = 0.03; // Standard 3% early funding discount
 
 router.get('/forecast', async (req, res) => {
   try {
-    const supplierId = req.query.supplierId || '1';
+    const supplier = await pool.query(
+      'SELECT id FROM suppliers WHERE name = $1 LIMIT 1',
+      [req.user.business_name]
+    );
+    if (supplier.rowCount === 0) {
+      return res.status(404).json({ message: 'No supplier profile is linked to this account.' });
+    }
+    const supplierId = String(supplier.rows[0].id);
 
     // Fetch active/confirmed invoices expecting future inflow (excluding already completed, disputed, or voided)
     const result = await pool.query(
@@ -27,10 +34,10 @@ router.get('/forecast', async (req, res) => {
         TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
         TO_CHAR(submitted_date, 'YYYY-MM-DD') AS submitted_date
        FROM invoices
-       WHERE (supplier_id = $1 OR supplier_id = '1')
+      WHERE supplier_id = $1
          AND status NOT IN ('Completed', 'Rejected', 'Disputed', 'Frozen')
        ORDER BY due_date ASC NULLS LAST, id DESC`,
-      [String(supplierId)]
+      [supplierId]
     );
 
     const invoices = result.rows;

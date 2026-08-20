@@ -7,6 +7,7 @@
 const express = require('express');
 const cloudinary = require('cloudinary').v2;
 const pool = require('../db');
+const { reconcileInvoice } = require('../services/calendarSync');
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ router.post('/upload-file', async (req, res) => {
 //    invoice has already been submitted - the same invoice must never be
 //    financed twice.
 router.post('/check-duplicate', async (req, res) => {
-  const { invoice_number, supplier_id } = req.body;
+  const { invoice_number } = req.body;
 
   if (!invoice_number) {
     return res.status(400).json({ message: 'invoice_number is required' });
@@ -88,7 +89,7 @@ router.post('/check-duplicate', async (req, res) => {
       `SELECT id, invoice_number, buyer_name, invoice_amount, submitted_date
        FROM invoices
        WHERE invoice_number = $1 AND supplier_id = $2`,
-      [invoice_number, String(supplier_id || 1)]
+      [invoice_number, String(req.user.id)]
     );
 
     res.json({
@@ -103,7 +104,7 @@ router.post('/check-duplicate', async (req, res) => {
 
 // 2. POST /api/invoices - save the invoice the supplier just confirmed
 router.post('/', async (req, res) => {
-  const { supplier_id, buyer_name, invoice_number, invoice_amount, due_date, file_url } = req.body;
+  const { buyer_name, invoice_number, invoice_amount, due_date, file_url } = req.body;
 
   const problems = findProblems(req.body);
   if (problems.length > 0) {
@@ -116,7 +117,7 @@ router.post('/', async (req, res) => {
     // actually enforce it.
     const clash = await pool.query(
       'SELECT id FROM invoices WHERE invoice_number = $1 AND supplier_id = $2',
-      [invoice_number, String(supplier_id || 1)]
+      [invoice_number, String(req.user.id)]
     );
     if (clash.rowCount > 0) {
       return res.status(409).json({ message: 'That invoice number has already been submitted' });
@@ -131,7 +132,7 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'Submitted', $6, $7, $8)
        RETURNING id, invoice_number, buyer_name, invoice_amount, due_date, status`,
       [
-        String(supplier_id || 1), buyer_name, invoice_number, Number(invoice_amount),
+        String(req.user.id), buyer_name, invoice_number, Number(invoice_amount),
         due_date, file_url || null,
         invoice_number,               // another member's column name for the same value
         String(invoice_amount),       // same again, stored as text on their side
@@ -147,13 +148,16 @@ router.post('/', async (req, res) => {
 // 3. GET /api/invoices - every invoice, newest first
 router.get('/', async (req, res) => {
   try {
+    const supplierFilter = req.user.role === 'admin' ? '' : 'WHERE supplier_id = $1';
     const result = await pool.query(
       `SELECT id, invoice_number, buyer_name, supplier_id, status,
               invoice_amount, payout_amount, file_url, frozen_at,
               TO_CHAR(due_date, 'YYYY-MM-DD')       AS due_date,
               TO_CHAR(submitted_date, 'YYYY-MM-DD') AS submitted_date
-       FROM invoices
-       ORDER BY submitted_date DESC NULLS LAST, id DESC`
+      FROM invoices
+      ${supplierFilter}
+      ORDER BY submitted_date DESC NULLS LAST, id DESC`,
+          req.user.role === 'admin' ? [] : [String(req.user.id)]
     );
     res.json(result.rows);
   } catch (error) {
@@ -237,6 +241,7 @@ router.delete('/:id', async (req, res) => {
         message: 'No invoice was removed - it does not exist, or it has moved past Submitted',
       });
     }
+    reconcileInvoice(removed.rows[0].id).catch((error) => console.error('Calendar withdrawal sync failed:', error.message));
     res.json({ deleted: true, invoice: removed.rows[0] });
   } catch (error) {
     res.status(500).json({ message: 'Could not remove that invoice' });
@@ -250,7 +255,7 @@ router.get('/confirmations/pending', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM invoices WHERE status = 'Submitted' AND buyer_name = $1 ORDER BY id DESC`,
-      [req.query.buyer]
+      [req.user.business_name]
     );
     res.json(result.rows);
   } catch (error) {
@@ -262,7 +267,7 @@ router.get('/confirmations/history', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM invoices WHERE status IN ('Buyer Confirmed', 'Disputed') AND buyer_name = $1 ORDER BY id DESC`,
-      [req.query.buyer]
+      [req.user.business_name]
     );
     res.json(result.rows);
   } catch (error) {
@@ -272,13 +277,13 @@ router.get('/confirmations/history', async (req, res) => {
 
 router.post('/confirmations/:id/confirm', async (req, res) => {
   try {
-    const { buyer_name, acknowledgment_text } = req.body;
+    const { acknowledgment_text } = req.body;
     const invoiceId = req.params.id;
     
     // Update invoice status
     const result = await pool.query(
       "UPDATE invoices SET status = 'Buyer Confirmed', current_stage = 'Buyer Confirmed' WHERE id = $1 AND buyer_name = $2 RETURNING *",
-      [invoiceId, buyer_name]
+      [invoiceId, req.user.business_name]
     );
 
     if (result.rowCount === 0) {

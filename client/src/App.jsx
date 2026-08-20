@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { LogOut } from "lucide-react";
 import Sidebar from "./components/Sidebar.jsx";
 import BuyerSidebar from "./components/BuyerSidebar.jsx";
+import FunderSidebar from "./components/FunderSidebar.jsx";
 import Header from "./components/Header.jsx";
 
 import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
@@ -25,6 +26,8 @@ import DocumentVault from "./digonto/pages/DocumentVault.jsx"; // Digonto - Docu
 import CashFlowForecast from "./ameet/CashFlowForecast.jsx";   // Ameet   - Cash Flow Forecast Engine
 import DynamicDiscounting from "./ameet/DynamicDiscounting.jsx"; // Module 2 - Buyer-funded early payment
 import SupplierDynamicDiscountOffers from "./ameet/SupplierDynamicDiscountOffers.jsx";
+import RepaymentSettlement from "./ameet/RepaymentSettlement.jsx";
+import RepaymentCalendar from "./ameet/RepaymentCalendar.jsx";
 import SupplierHealth from "./mihir/pages/SupplierHealth.jsx";           // Mihir - Supplier Health Analytics
 import Notifications from "./mihir/pages/Notifications.jsx";             // Mihir - Notification Center
 import Portfolio from "./mihir/pages/Portfolio.jsx";                     // Mihir - Investor Portfolio
@@ -46,6 +49,18 @@ function BuyerLayout({ children }) {
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
       <BuyerSidebar />
+      <div className="flex-1 ml-[250px] flex flex-col relative">
+        <Header />
+        <main className="flex-1 overflow-x-hidden relative">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+function FunderLayout({ children }) {
+  return (
+    <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
+      <FunderSidebar />
       <div className="flex-1 ml-[250px] flex flex-col relative">
         <Header />
         <main className="flex-1 overflow-x-hidden relative">{children}</main>
@@ -107,6 +122,7 @@ const HOME_BY_ROLE = {
   admin: "/admin",
   supplier: "/pipeline",
   buyer: "/buyer/dynamic-discounting",
+  funder: "/funder/portfolio",
 };
 
 function RoleHome() {
@@ -142,18 +158,26 @@ function App() {
           <Route path="/upload" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><InvoiceUpload /></Content></SupplierLayout></ProtectedRoute>} />
           <Route path="/discount" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><InvoicesPage /></SupplierLayout></ProtectedRoute>} />
           <Route path="/my-invoices" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><MyInvoices /></Content></SupplierLayout></ProtectedRoute>} />
-          <Route path="/buyer-confirmation" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><BuyerConfirmation /></SupplierLayout></ProtectedRoute>} />
-          <Route path="/disputes" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><DisputeCentre /></Content></SupplierLayout></ProtectedRoute>} />
           <Route path="/payouts" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><PayoutHistory /></Content></SupplierLayout></ProtectedRoute>} />
           <Route path="/vault" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><DocumentVault /></SupplierLayout></ProtectedRoute>} />
           <Route path="/marketplace" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><FunderMarketplace /></SupplierLayout></ProtectedRoute>} />
           <Route path="/wallet" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><FunderWallet /></SupplierLayout></ProtectedRoute>} />
           <Route path="/auto-invest" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><AutoInvestRules /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/funder/marketplace" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><FunderMarketplace /></FunderLayout></ProtectedRoute>} />
+          <Route path="/funder/vault" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><DocumentVault /></FunderLayout></ProtectedRoute>} />
+          <Route path="/funder/wallet" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><FunderWallet /></FunderLayout></ProtectedRoute>} />
+          <Route path="/funder/auto-invest" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><AutoInvestRules /></FunderLayout></ProtectedRoute>} />
           <Route path="/cashflow" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><CashFlowForecast /></SupplierLayout></ProtectedRoute>} />
           <Route path="/buyer-funded-offers" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><SupplierDynamicDiscountOffers /></SupplierLayout></ProtectedRoute>} />
-          <Route path="/health" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><SupplierHealth /></Content></SupplierLayout></ProtectedRoute>} />
+          <Route path="/settlements" element={<ProtectedRoute roles={["admin"]}><AdminLayout><RepaymentSettlement /></AdminLayout></ProtectedRoute>} />
+          <Route path="/calendar" element={<ProtectedRoute roles={["admin"]}><AdminLayout><RepaymentCalendar /></AdminLayout></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Notifications /></SupplierLayout></ProtectedRoute>} />
           <Route path="/portfolio" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Portfolio /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/funder/notifications" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><Notifications /></FunderLayout></ProtectedRoute>} />
+          <Route path="/funder/portfolio" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><Portfolio /></FunderLayout></ProtectedRoute>} />
+          <Route path="/funder/settlements" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><RepaymentSettlement /></FunderLayout></ProtectedRoute>} />
+          <Route path="/funder/calendar" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><RepaymentCalendar /></FunderLayout></ProtectedRoute>} />
+          <Route path="/funder/credit" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><BuyerCredit /></FunderLayout></ProtectedRoute>} />
           <Route path="/credit" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><BuyerCredit /></SupplierLayout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Placeholder name="Settings" /></SupplierLayout></ProtectedRoute>} />
 
@@ -167,6 +191,32 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/buyer/health"
+            element={
+              <ProtectedRoute roles={["buyer", "admin"]}>
+                <BuyerLayout><Content><SupplierHealth /></Content></BuyerLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/buyer/buyer-confirmation"
+            element={
+              <ProtectedRoute roles={["buyer", "admin"]}>
+                <BuyerLayout><BuyerConfirmation /></BuyerLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/buyer/disputes"
+            element={
+              <ProtectedRoute roles={["buyer", "admin"]}>
+                <BuyerLayout><Content><DisputeCentre /></Content></BuyerLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/buyer/settlements" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><RepaymentSettlement /></BuyerLayout></ProtectedRoute>} />
+          <Route path="/buyer/calendar" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><RepaymentCalendar /></BuyerLayout></ProtectedRoute>} />
 
           <Route path="*" element={<RoleHome />} />
         </Routes>

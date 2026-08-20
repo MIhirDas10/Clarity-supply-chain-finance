@@ -485,6 +485,31 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_funder ON wallet_transactions(funder_id);
 
+-- ===========================================================================
+-- Ameet's Module 3 - Repayment & Settlement Engine
+-- ===========================================================================
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS repayment_date DATE;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS settled_at TIMESTAMPTZ;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS overdue_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS invoice_repayments (
+  id                 SERIAL PRIMARY KEY,
+  invoice_id         TEXT NOT NULL,
+  amount_received    NUMERIC(14, 2) NOT NULL,
+  principal_due      NUMERIC(14, 2) NOT NULL,
+  return_due         NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  platform_fee_rate  NUMERIC(6, 4) NOT NULL DEFAULT 0.0050,
+  platform_fee       NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  funder_payout      NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  supplier_residual  NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  status             TEXT NOT NULL DEFAULT 'Settled',
+  received_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  settled_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(invoice_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoice_repayments_invoice ON invoice_repayments(invoice_id);
+
 -- One rule = "auto-fund anything that matches these criteria, up to this
 -- much capital per invoice, whenever my wallet can cover it."
 CREATE TABLE IF NOT EXISTS auto_invest_rules (
@@ -504,8 +529,8 @@ CREATE INDEX IF NOT EXISTS idx_auto_invest_rules_funder ON auto_invest_rules(fun
 
 --  Users, Login & Role-Based Access   (Common Workflow - shared by everyone)
 --
---  Three roles: admin, supplier, buyer. Anyone can sign up as supplier or
---  buyer; admin accounts are never created through the public signup form,
+--  Four roles: admin, supplier, buyer, funder. Anyone can sign up as supplier,
+--  buyer or funder; admin accounts are never created through the public signup form,
 --  only seeded or promoted by another admin.
 --
 --  A new signup starts as Pending. Only Approved accounts can log in - this
@@ -514,7 +539,7 @@ CREATE INDEX IF NOT EXISTS idx_auto_invest_rules_funder ON auto_invest_rules(fun
 -- ===========================================================================
 CREATE TABLE IF NOT EXISTS users (
   id            SERIAL PRIMARY KEY,
-  role          TEXT NOT NULL,                    -- 'admin' | 'supplier' | 'buyer'
+  role          TEXT NOT NULL,                    -- 'admin' | 'supplier' | 'buyer' | 'funder'
   business_name TEXT NOT NULL,
   email         TEXT NOT NULL UNIQUE,
   phone         TEXT,
@@ -523,3 +548,58 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   approved_at   TIMESTAMPTZ
 );
+
+-- Buyer-side repayment wallet. A repayment is only accepted when the buyer
+-- wallet can cover the face value; the debit and funder credit share one DB
+-- transaction in the settlement route.
+CREATE TABLE IF NOT EXISTS buyer_wallets (
+  user_id       INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  buyer_name    TEXT NOT NULL,
+  balance       NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS buyer_wallet_transactions (
+  id            SERIAL PRIMARY KEY,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL, -- Deposit | Repayment
+  amount        NUMERIC(14, 2) NOT NULL,
+  balance_after NUMERIC(14, 2) NOT NULL,
+  invoice_id    TEXT,
+  status        TEXT NOT NULL DEFAULT 'Completed',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_buyer_wallet_transactions_user ON buyer_wallet_transactions(user_id);
+
+-- ===========================================================================
+-- Ameet's Module 4 - Google Calendar OAuth and event mirror
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS calendar_connections (
+  id             SERIAL PRIMARY KEY,
+  user_id        INTEGER NOT NULL REFERENCES users(id),
+  provider       TEXT NOT NULL DEFAULT 'google',
+  access_token   TEXT,
+  refresh_token  TEXT,
+  token_type     TEXT DEFAULT 'Bearer',
+  scope          TEXT,
+  expires_at     TIMESTAMPTZ,
+  oauth_state    TEXT UNIQUE,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, provider)
+);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id               SERIAL PRIMARY KEY,
+  connection_id    INTEGER NOT NULL REFERENCES calendar_connections(id) ON DELETE CASCADE,
+  invoice_id       TEXT NOT NULL,
+  event_kind       TEXT NOT NULL,
+  google_event_id  TEXT,
+  event_date       DATE NOT NULL,
+  status           TEXT NOT NULL DEFAULT 'Active',
+  last_synced_at   TIMESTAMPTZ,
+  UNIQUE(connection_id, invoice_id, event_kind)
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendar_events_invoice ON calendar_events(invoice_id);

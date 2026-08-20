@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 const API_URL = ''; // same-origin: the Vite proxy forwards /api to the server
-const SUPPLIER_ID = 1; // later this comes from the logged-in user
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -44,7 +43,7 @@ function PayoutHistory() {
 
   // Runs once when the page opens: ask the backend for the ledger.
   useEffect(() => {
-    fetch(API_URL + '/api/payouts?supplierId=' + SUPPLIER_ID)
+    fetch(API_URL + '/api/payouts')
       .then((response) => response.json())
       .then((data) => {
         setInvoices(data);
@@ -96,7 +95,7 @@ function PayoutHistory() {
             Content-Disposition header the server sends back. */}
         <a
           className="download-button"
-          href={API_URL + '/api/payouts/export.csv?supplierId=' + SUPPLIER_ID}
+          href={API_URL + '/api/payouts/export.csv'}
         >
           Download CSV
         </a>

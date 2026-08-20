@@ -111,7 +111,7 @@ function MyInvoices() {
         <div className="header-actions">
           <a
             className="btn-outline"
-            href={API_URL + '/api/payouts/export.csv?supplierId=1'}
+            href={API_URL + '/api/payouts/export.csv'}
           >
             <Download size={15} />
             Export Report

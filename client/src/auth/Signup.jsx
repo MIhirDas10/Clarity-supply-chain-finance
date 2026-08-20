@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Truck, ShoppingBag } from 'lucide-react';
+import { Truck, ShoppingBag, Landmark } from 'lucide-react';
 import { useAuth } from './AuthContext.jsx';
 import './auth.css';
 
@@ -10,6 +10,7 @@ import './auth.css';
 const ROLES = [
   { value: 'supplier', label: 'Supplier', icon: Truck },
   { value: 'buyer', label: 'Buyer', icon: ShoppingBag },
+  { value: 'funder', label: 'Funder', icon: Landmark },
 ];
 
 function Signup() {

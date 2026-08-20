@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import Tesseract from 'tesseract.js';
 
 const API_URL = ''; // same-origin: the Vite proxy forwards /api to the server
-const SUPPLIER_ID = 1; // later this comes from the logged-in user
 
 // ---------------------------------------------------------------------------
 // Reading the invoice
@@ -158,7 +157,7 @@ function InvoiceUpload() {
       fetch(API_URL + '/api/invoices/check-duplicate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice_number: form.invoice_number, supplier_id: SUPPLIER_ID }),
+        body: JSON.stringify({ invoice_number: form.invoice_number }),
       })
         .then((r) => r.json())
         .then((result) => setDuplicate(result.duplicate ? result.existing : null))
@@ -329,7 +328,6 @@ function InvoiceUpload() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          supplier_id: SUPPLIER_ID,
           buyer_name: form.buyer_name,
           invoice_number: form.invoice_number,
           invoice_amount: form.invoice_amount,

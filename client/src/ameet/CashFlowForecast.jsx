@@ -19,7 +19,7 @@ export default function CashFlowForecast() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/cashflow/forecast?supplierId=1");
+      const res = await fetch("/api/cashflow/forecast");
       if (!res.ok) throw new Error("Failed to fetch forecast data");
       const json = await res.json();
       setData(json);

@@ -10,7 +10,7 @@ const pool = new Pool({
 
 // GET /api/documents - Fetch all documents for a supplier
 router.get('/', async (req, res) => {
-  const supplierId = req.query.supplierId || 'SUP-001'; // Mock default supplier
+  const supplierId = String(req.user.id);
   try {
     const result = await pool.query(
       'SELECT * FROM supplier_documents WHERE supplier_id = $1 ORDER BY uploaded_at DESC',
@@ -25,8 +25,8 @@ router.get('/', async (req, res) => {
 
 // POST /api/documents - Upload a new document
 router.post('/', async (req, res) => {
-  const { file, file_name, doc_type, notes, supplier_id } = req.body;
-  const supplierId = supplier_id || 'SUP-001';
+  const { file, file_name, doc_type, notes } = req.body;
+  const supplierId = String(req.user.id);
 
   if (!file) {
     return res.status(400).json({ message: 'File is required' });
@@ -71,8 +71,8 @@ router.put('/:id', async (req, res) => {
     const result = await pool.query(
       `UPDATE supplier_documents 
        SET doc_type = COALESCE($1, doc_type), notes = COALESCE($2, notes) 
-       WHERE id = $3 RETURNING *`,
-      [doc_type, notes, id]
+      WHERE id = $3 AND supplier_id = $4 RETURNING *`,
+          [doc_type, notes, id, String(req.user.id)]
     );
 
     if (result.rows.length === 0) {
@@ -92,8 +92,8 @@ router.delete('/:id', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'DELETE FROM supplier_documents WHERE id = $1 RETURNING *',
-      [id]
+      'DELETE FROM supplier_documents WHERE id = $1 AND supplier_id = $2 RETURNING *',
+      [id, String(req.user.id)]
     );
 
     if (result.rows.length === 0) {

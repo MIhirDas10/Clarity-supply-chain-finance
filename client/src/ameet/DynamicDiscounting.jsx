@@ -4,11 +4,10 @@ import {
   RefreshCw,
   Send,
 } from "lucide-react";
-
+import { useAuth } from "../auth/AuthContext.jsx";
 
 
 const API_URL = "";
-const DEFAULT_BUYER = "Apex Footwear Ltd";
 
 const MONTHS = [
   "Jan",
@@ -110,12 +109,13 @@ function responseDate(value) {
 }
 
 export default function DynamicDiscounting() {
+  const { user } = useAuth();
   const [eligible, setEligible] = useState([]);
   const [offers, setOffers] = useState([]);
 
   const [selected, setSelected] = useState([]);
 
-  const [buyerName, setBuyerName] = useState(DEFAULT_BUYER);
+  const [buyerName, setBuyerName] = useState("");
   const [discountRate, setDiscountRate] = useState(3);
 
   const [loading, setLoading] = useState(true);
@@ -189,9 +189,7 @@ export default function DynamicDiscounting() {
 
     fetch(
       API_URL +
-        `/api/dynamic-discounting/offers?buyerName=${encodeURIComponent(
-          buyerName
-        )}`
+        "/api/dynamic-discounting/offers"
     )
       .then((response) => {
         if (!response.ok) {
@@ -218,9 +216,10 @@ export default function DynamicDiscounting() {
   }
 
   useEffect(() => {
+    if (user?.business_name) setBuyerName(user.business_name);
     loadData();
     loadOffers();
-  }, []);
+  }, [user?.business_name]);
 
   function toggleInvoice(id) {
     setSelected((current) =>
@@ -244,7 +243,6 @@ export default function DynamicDiscounting() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            buyerName,
             invoiceIds: selected,
             discountRate: discountRate / 100,
             platformFeeRate: 0.005,
