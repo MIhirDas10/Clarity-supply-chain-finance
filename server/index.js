@@ -16,6 +16,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 
+const authRoutes = require('./routes/authRoutes');         // Common Workflow - Login, Signup & Admin Approval
 const invoiceRoutes = require('./routes/invoiceRoutes');   // Apurba - M1 Invoice Upload with OCR
 const disputeRoutes = require('./routes/disputeRoutes');   // Apurba - M2 Dispute Filing & Freeze
 const payoutRoutes = require('./routes/payoutRoutes');     // Apurba - payout ledger (supporting)
@@ -42,6 +43,9 @@ app.use(express.json({ limit: '10mb' }));
 
 // Swagger API documentation (Mihir)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// Login, Signup & Admin Approval - everyone's dashboards depend on this
+app.use('/api/auth', authRoutes);
 
 // Apurba - M1 invoice upload with OCR, M2 dispute filing, plus the payout ledger
 app.use('/api/invoices', invoiceRoutes);

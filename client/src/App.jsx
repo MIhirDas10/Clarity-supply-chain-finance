@@ -1,7 +1,14 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import Sidebar from "./components/Sidebar.jsx";
 import BuyerSidebar from "./components/BuyerSidebar.jsx";
 import Header from "./components/Header.jsx";
+
+import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
+import ProtectedRoute from "./auth/ProtectedRoute.jsx";
+import Login from "./auth/Login.jsx";
+import Signup from "./auth/Signup.jsx";
+import AdminDashboard from "./auth/AdminDashboard.jsx";
 
 // Each member's feature page, kept in its own folder with its original code.
 import Dashboard from "./mihir/pages/Dashboard.jsx";              // Mihir  - Invoice Pipeline Tracker
@@ -43,6 +50,34 @@ function BuyerLayout({ children }) {
   );
 }
 
+// The admin panel is not a supplier or a buyer, so it gets its own small
+// shell rather than borrowing either sidebar - a plain top bar with a
+// logout button is enough for the one page that lives here today.
+function AdminLayout({ children }) {
+  const { user, logout } = useAuth();
+  return (
+    <div style={{ minHeight: "100vh", backgroundColor: "var(--page-bg)" }}>
+      <header
+        className="flex items-center justify-between px-6"
+        style={{ height: 60, background: "#0F172A", color: "#fff" }}
+      >
+        <span style={{ fontWeight: 700, fontSize: 15 }}>Clarity B2B — Admin</span>
+        <div className="flex items-center gap-4">
+          <span style={{ fontSize: 13, opacity: 0.8 }}>{user?.business_name}</span>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 cursor-pointer"
+            style={{ fontSize: 13, color: "#fff", background: "none", border: "none" }}
+          >
+            <LogOut size={15} /> Log out
+          </button>
+        </div>
+      </header>
+      <main>{children}</main>
+    </div>
+  );
+}
+
 // Apurba's pages were written to sit inside a ".content" wrapper (padding +
 // max-width). The unified layout re-supplies it so they look like they did in
 // Apurba's standalone app. Digonto's and Mihir's pages carry their own padding.
@@ -61,35 +96,74 @@ function Placeholder({ name }) {
   );
 }
 
+// "/" has no fixed destination - it depends on who, if anyone, is logged in.
+// ProtectedRoute cannot help here because there is nothing role-specific to
+// protect; this component just decides where "home" means for this visitor.
+const HOME_BY_ROLE = {
+  admin: "/admin",
+  supplier: "/pipeline",
+  buyer: "/buyer/dynamic-discounting",
+};
+
+function RoleHome() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={HOME_BY_ROLE[user.role] || "/login"} replace />;
+}
+
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Navigate to="/pipeline" replace />} />
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public - no login required */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
 
-        {/* Supplier Routes */}
-        <Route path="/pipeline" element={<SupplierLayout><Dashboard /></SupplierLayout>} />
-        <Route path="/upload" element={<SupplierLayout><Content><InvoiceUpload /></Content></SupplierLayout>} />
-        <Route path="/discount" element={<SupplierLayout><InvoicesPage /></SupplierLayout>} />
-        <Route path="/my-invoices" element={<SupplierLayout><Content><MyInvoices /></Content></SupplierLayout>} />
-        <Route path="/buyer-confirmation" element={<SupplierLayout><BuyerConfirmation /></SupplierLayout>} />
-        <Route path="/disputes" element={<SupplierLayout><Content><DisputeCentre /></Content></SupplierLayout>} />
-        <Route path="/payouts" element={<SupplierLayout><Content><PayoutHistory /></Content></SupplierLayout>} />
-        <Route path="/cashflow" element={<SupplierLayout><CashFlowForecast /></SupplierLayout>} />
-        <Route path="/buyer-funded-offers" element={<SupplierLayout><SupplierDynamicDiscountOffers /></SupplierLayout>} />
-        <Route path="/health" element={<SupplierLayout><Content><SupplierHealth /></Content></SupplierLayout>} />
-        <Route path="/notifications" element={<SupplierLayout><Notifications /></SupplierLayout>} />
-        <Route path="/portfolio" element={<SupplierLayout><Portfolio /></SupplierLayout>} />
-        <Route path="/credit" element={<SupplierLayout><BuyerCredit /></SupplierLayout>} />
-        <Route path="/settings" element={<SupplierLayout><Placeholder name="Settings" /></SupplierLayout>} />
+          <Route path="/" element={<RoleHome />} />
 
-        {/* Buyer Routes */}
-        <Route path="/buyer" element={<Navigate to="/buyer/dynamic-discounting" replace />} />
-        <Route path="/buyer/dynamic-discounting" element={<BuyerLayout><DynamicDiscounting /></BuyerLayout>} />
+          {/* Admin */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AdminLayout><AdminDashboard /></AdminLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route path="*" element={<Navigate to="/pipeline" replace />} />
-      </Routes>
-    </Router>
+          {/* Supplier Routes - admins can view these too, for oversight */}
+          <Route path="/pipeline" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Dashboard /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/upload" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><InvoiceUpload /></Content></SupplierLayout></ProtectedRoute>} />
+          <Route path="/discount" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><InvoicesPage /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/my-invoices" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><MyInvoices /></Content></SupplierLayout></ProtectedRoute>} />
+          <Route path="/buyer-confirmation" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><BuyerConfirmation /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/disputes" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><DisputeCentre /></Content></SupplierLayout></ProtectedRoute>} />
+          <Route path="/payouts" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><PayoutHistory /></Content></SupplierLayout></ProtectedRoute>} />
+          <Route path="/cashflow" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><CashFlowForecast /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/buyer-funded-offers" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><SupplierDynamicDiscountOffers /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/health" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Content><SupplierHealth /></Content></SupplierLayout></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Notifications /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/portfolio" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Portfolio /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/credit" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><BuyerCredit /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Placeholder name="Settings" /></SupplierLayout></ProtectedRoute>} />
+
+          {/* Buyer Routes */}
+          <Route path="/buyer" element={<Navigate to="/buyer/dynamic-discounting" replace />} />
+          <Route
+            path="/buyer/dynamic-discounting"
+            element={
+              <ProtectedRoute roles={["buyer", "admin"]}>
+                <BuyerLayout><DynamicDiscounting /></BuyerLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<RoleHome />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
