@@ -10,6 +10,7 @@ const HOME_BY_ROLE = {
   admin: '/admin',
   supplier: '/pipeline',
   buyer: '/buyer/dynamic-discounting',
+  funder: '/funder/portfolio',
 };
 
 function Login() {
@@ -85,7 +86,8 @@ function Login() {
           <b>Demo accounts</b> (seeded by <code>npm run setup</code>):<br />
           Admin — admin@clarity.io / admin123<br />
           Supplier — supplier@clarity.io / supplier123<br />
-          Buyer — buyer@clarity.io / buyer123
+          Buyer — buyer@clarity.io / buyer123<br />
+          Funder — funder@clarity.io / funder123
         </div>
       </div>
     </div>

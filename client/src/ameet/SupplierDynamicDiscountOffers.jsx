@@ -9,7 +9,6 @@ import {
 
 
 const API_URL = "";
-const SUPPLIER_ID = "1";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function toNumber(value) {
@@ -62,7 +61,7 @@ export default function SupplierDynamicDiscountOffers() {
     setLoading(true);
     setMessage("");
 
-    fetch(API_URL + `/api/dynamic-discounting/offers?supplierId=${SUPPLIER_ID}`)
+    fetch(API_URL + "/api/dynamic-discounting/offers")
       .then((response) => response.json())
       .then((data) => {
         setOffers(Array.isArray(data) ? data : []);
@@ -85,7 +84,6 @@ export default function SupplierDynamicDiscountOffers() {
       const response = await fetch(API_URL + `/api/dynamic-discounting/offers/${id}/${action}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorName: "Supplier" }),
       });
       const data = await response.json();
 

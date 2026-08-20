@@ -2,6 +2,8 @@ import { NavLink } from "react-router-dom";
 import {
   Activity,
   CircleDollarSign,
+  CalendarDays,
+  WalletCards,
   FileCheck2,
   ShieldAlert,
   LogOut,
@@ -9,15 +11,32 @@ import {
 import { useAuth } from "../auth/AuthContext.jsx";
 
 const buyerItems = [
-  { label: "Supplier Health & Distress-Signal Analytics", icon: Activity, built: false },
-  { label: "Invoice Confirmation & Digital Acknowledgment Workflow", icon: FileCheck2, built: false },
-  { label: "Dispute Filing & Invoice Freeze", icon: ShieldAlert, built: false },
+  {
+    label: "Supplier Health Analytics",
+    to: "/buyer/health",
+    icon: Activity,
+    built: true,
+  },
+  {
+    label: "Invoice Confirmation",
+    to: "/buyer/buyer-confirmation",
+    icon: FileCheck2,
+    built: true,
+  },
+  {
+    label: "Dispute Filing & Invoice Freeze",
+    to: "/buyer/disputes",
+    icon: ShieldAlert,
+    built: true,
+  },
   {
     label: "Dynamic Discounting",
     to: "/buyer/dynamic-discounting",
     icon: CircleDollarSign,
     built: true,
   },
+  { label: "Repayment & Settlement", to: "/buyer/settlements", icon: WalletCards, built: true },
+  { label: "Repayment Calendar", to: "/buyer/calendar", icon: CalendarDays, built: true },
 ];
 
 export default function BuyerSidebar() {

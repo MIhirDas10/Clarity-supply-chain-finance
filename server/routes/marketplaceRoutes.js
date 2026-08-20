@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { reconcileInvoice } = require('../services/calendarSync');
 
 // GET /api/marketplace/invoices
 router.get('/invoices', async (req, res) => {
@@ -79,6 +80,7 @@ router.post('/:invoiceId/fund', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    reconcileInvoice(invoiceId).catch((error) => console.error('Calendar funding sync failed:', error.message));
     res.json({ success: true, invoice: updateRes.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');

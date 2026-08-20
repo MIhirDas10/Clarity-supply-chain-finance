@@ -11,7 +11,7 @@
 // Both data layers (raw `pg` and the Supabase client) talk to the SAME Supabase
 // PostgreSQL database, so every feature reads and writes the same invoices.
 
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '.env'), override: true });
 
 const express = require('express');
 const cors = require('cors');
@@ -31,11 +31,15 @@ const creditRoutes = require('./routes/creditRoutes'); // Mihir - Buyer Credit S
 const cashflowRoutes = require('./routes/cashflowRoutes');  // Ameet (Cash Flow Forecast Engine)
 const confirmationRoutes = require('./routes/confirmationRoutes'); // Digonto (M2 Confirmations)
 const documentRoutes = require('./routes/documentRoutes'); // Digonto (M1 Document Vault)
-const dynamicDiscountingRoutes = require('./routes/dynamicDiscountingRoutes'); // Module 2
+const dynamicDiscountingRoutes = require('./routes/dynamicDiscountingRoutes'); // Ameet (M2 Buyer-Funded Early Payment Offers)
 const marketplaceRoutes = require('./routes/marketplaceRoutes'); // Digonto (M3 Marketplace)
+const settlementRoutes = require('./routes/settlementRoutes'); // Ameet (M3 Repayment & Settlement)
+const calendarRoutes = require('./routes/calendarRoutes'); // Ameet (M4 Google Calendar Sync)
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
+const { requireAuth } = require('./middleware/auth');
+const { configured: calendarConfigured } = require('./services/calendarSync');
 
 const app = express();
 const PORT = process.env.PORT || 1633;
@@ -50,6 +54,14 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Login, Signup & Admin Approval - everyone's dashboards depend on this
 app.use('/api/auth', authRoutes);
+
+// Google redirects here without the Clarity bearer token. OAuth state stored
+// in Supabase ties the callback back to the authenticated user who connected.
+app.get('/api/calendar/oauth/callback', calendarRoutes.oauthCallback);
+
+// Every feature API uses the identity established by login. Authentication is
+// mounted after the public auth endpoints so signup and login remain public.
+app.use('/api', requireAuth);
 
 // Apurba - M1 invoice upload with OCR, M2 dispute filing, plus the payout ledger
 app.use('/api/invoices', invoiceRoutes);
@@ -70,6 +82,8 @@ app.use('/api/marketplace', marketplaceRoutes);
 
 // Module 2 - buyer-funded early payment offers
 app.use('/api/dynamic-discounting', dynamicDiscountingRoutes);
+app.use('/api/settlements', settlementRoutes);
+app.use('/api/calendar', calendarRoutes);
 
 // Mihir - invoice status pipeline (kept under its own prefix to avoid clashing
 // with Apurba's /api/invoices). The client calls /api/pipeline/invoices...
@@ -93,5 +107,6 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
   console.log('Clarity B2B API running on http://localhost:' + PORT);
+  console.log('Google Calendar credentials configured: ' + calendarConfigured());
   console.log('API docs at http://localhost:' + PORT + '/api-docs');
 });

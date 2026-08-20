@@ -7,7 +7,10 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "setup": "node setup.js"
+    "setup": "node setup.js",
+    "seed:settlement-test": "node seed-settlement-test.js",
+    "seed:settlement-reset": "node seed-settlement-test.js --reset",
+    "seed:calendar-test": "node seed-calendar-test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",

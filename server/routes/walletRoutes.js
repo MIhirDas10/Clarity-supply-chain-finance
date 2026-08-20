@@ -23,8 +23,12 @@ router.get('/:funderId', async (req, res) => {
     await client.query('COMMIT');
 
     const history = await pool.query(
-      `SELECT id, type, amount, balance_after, invoice_id, status, created_at
-       FROM wallet_transactions WHERE funder_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      `SELECT wt.id, wt.type, wt.amount, wt.balance_after, wt.invoice_id, wt.status, wt.created_at,
+              i.invoice_number
+       FROM wallet_transactions wt
+       LEFT JOIN invoices i ON i.id::TEXT = wt.invoice_id
+       WHERE wt.funder_id = $1
+       ORDER BY wt.created_at DESC LIMIT 100`,
       [req.params.funderId]
     );
     res.json({ ...wallet, transactions: history.rows });
@@ -55,8 +59,8 @@ router.post('/deposit/init', async (req, res) => {
       email: `${funder_id}@clarity.demo`, // UddoktaPay requires an email; funders aren't logged in yet
       amount,
       metadata: { funder_id, funder_name },
-      redirectUrl: `${origin}/wallet?funder_id=${encodeURIComponent(funder_id)}`,
-      cancelUrl: `${origin}/wallet?funder_id=${encodeURIComponent(funder_id)}`,
+      redirectUrl: `${origin}/funder/wallet?funder_id=${encodeURIComponent(funder_id)}`,
+      cancelUrl: `${origin}/funder/wallet?funder_id=${encodeURIComponent(funder_id)}`,
       webhookUrl: `${origin}/api/wallet/deposit/webhook`,
     });
 

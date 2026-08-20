@@ -31,7 +31,7 @@ const LEDGER_QUERY = `
 
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(LEDGER_QUERY, [req.query.supplierId || 1]);
+    const result = await pool.query(LEDGER_QUERY, [String(req.user.id)]);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Could not load payout history' });
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
 
 router.get('/export.csv', async (req, res) => {
   try {
-    const result = await pool.query(LEDGER_QUERY, [req.query.supplierId || 1]);
+    const result = await pool.query(LEDGER_QUERY, [String(req.user.id)]);
 
     const lines = ['Invoice Number,Buyer,Status,Invoice Amount,Payout Received,Discount Paid,Funder,Submitted Date,Payment Date'];
 

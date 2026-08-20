@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../auth/AuthContext.jsx';
 
 // Same demo funders the Marketplace page uses ("Acting as: ..."), so a
 // balance topped up here is the same balance the Marketplace/Auto-Invest
@@ -7,6 +8,7 @@ const mockFunders = [
   { id: 'F-1', name: 'BRAC Bank' },
   { id: 'F-2', name: 'IDLC Finance' },
   { id: 'F-3', name: 'City Bank NBFI' },
+  { id: 'F-14', name: 'jhv' },
 ];
 
 function formatTaka(amount) {
@@ -14,6 +16,7 @@ function formatTaka(amount) {
 }
 
 const FunderWallet = () => {
+  const { user } = useAuth();
   const [funder, setFunder] = useState(mockFunders[0]);
   const [wallet, setWallet] = useState(null);
   const [amount, setAmount] = useState('');
@@ -21,10 +24,24 @@ const FunderWallet = () => {
   const [verifying, setVerifying] = useState(false);
   const [message, setMessage] = useState('');
 
+  const authHeaders = () => {
+    const token = localStorage.getItem('clarity_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const loadWallet = async (funderId) => {
-    const res = await fetch(`/api/wallet/${funderId}?funderName=${encodeURIComponent(funder.name)}`);
+    const res = await fetch(`/api/wallet/${funderId}?funderName=${encodeURIComponent(funder.name)}`, {
+      headers: authHeaders(),
+    });
     setWallet(await res.json());
   };
+
+  useEffect(() => {
+    if (user?.role === 'funder') {
+      const loggedInFunder = { id: `F-${user.id}`, name: user.business_name };
+      setFunder(loggedInFunder);
+    }
+  }, [user?.id, user?.business_name, user?.role]);
 
   useEffect(() => {
     loadWallet(funder.id);
@@ -41,7 +58,7 @@ const FunderWallet = () => {
     setVerifying(true);
     fetch('/api/wallet/deposit/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ uddoktapay_id: uddoktapayId }),
     })
       .then((res) => res.json())
@@ -63,7 +80,7 @@ const FunderWallet = () => {
     try {
       const res = await fetch('/api/wallet/deposit/init', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ funder_id: funder.id, funder_name: funder.name, amount }),
       });
       const data = await res.json();
@@ -139,6 +156,7 @@ const FunderWallet = () => {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Invoice</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Amount</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Balance After</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
@@ -149,6 +167,7 @@ const FunderWallet = () => {
                 {wallet.transactions.map((tx) => (
                   <tr key={tx.id}>
                     <td className="px-6 py-3 text-sm text-slate-900">{tx.type}</td>
+                    <td className="px-6 py-3 text-sm text-slate-600">{tx.invoice_number || tx.invoice_id || '—'}</td>
                     <td className={`px-6 py-3 text-sm text-right font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                       {Number(tx.amount) < 0 ? '-' : '+'}{formatTaka(Math.abs(tx.amount))}
                     </td>

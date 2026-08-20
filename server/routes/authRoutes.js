@@ -17,7 +17,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-const VALID_SIGNUP_ROLES = ['supplier', 'buyer'];
+const VALID_SIGNUP_ROLES = ['supplier', 'buyer', 'funder'];
 
 // A JWT that lasts 7 days. Anything the app needs to check on every request
 // (id, role, business_name) is baked into the token, so most requests never
@@ -40,7 +40,7 @@ router.post('/signup', async (req, res) => {
   if (!VALID_SIGNUP_ROLES.includes(role)) {
     // Admin accounts are never created through this public form - that would
     // let anyone grant themselves full platform control.
-    return res.status(400).json({ message: 'role must be "supplier" or "buyer"' });
+    return res.status(400).json({ message: 'role must be "supplier", "buyer" or "funder"' });
   }
   if (password.length < 6) {
     return res.status(400).json({ message: 'password must be at least 6 characters' });

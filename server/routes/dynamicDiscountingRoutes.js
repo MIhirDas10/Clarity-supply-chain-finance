@@ -42,6 +42,14 @@ function validateRate(rate, label, min, max) {
   return value;
 }
 
+async function getSupplierId(user) {
+  const result = await pool.query(
+    'SELECT id FROM suppliers WHERE name = $1 LIMIT 1',
+    [user.business_name]
+  );
+  return result.rowCount > 0 ? String(result.rows[0].id) : null;
+}
+
 const OFFER_SELECT = `
   SELECT
     o.id,
@@ -68,14 +76,9 @@ const OFFER_SELECT = `
 
 router.get('/eligible-invoices', async (req, res) => {
   try {
-    const buyerName = req.query.buyerName || null;
+    const buyerName = req.user.business_name;
 
-    const params = [...BUYER_CONFIRMED_STATUSES];
-    let buyerFilter = '';
-    if (buyerName) {
-      params.push(buyerName);
-      buyerFilter = `AND i.buyer_name = $${params.length}`;
-    }
+    const buyerFilter = 'AND i.buyer_name = $2';
 
     const result = await pool.query(
       `
@@ -99,7 +102,7 @@ router.get('/eligible-invoices', async (req, res) => {
           ${buyerFilter}
         ORDER BY i.due_date ASC NULLS LAST, i.id DESC
       `,
-      [BUYER_CONFIRMED_STATUSES, ...params.slice(BUYER_CONFIRMED_STATUSES.length)]
+      [BUYER_CONFIRMED_STATUSES, buyerName]
     );
 
     res.json(result.rows);
@@ -114,9 +117,16 @@ router.get('/offers', async (req, res) => {
     const filters = [];
     const params = [];
 
-    if (req.query.supplierId) {
-      params.push(String(req.query.supplierId));
+    if (req.user.role === 'supplier') {
+      const supplierId = await getSupplierId(req.user);
+      if (!supplierId) {
+        return res.status(404).json({ message: 'No supplier profile is linked to this account.' });
+      }
+      params.push(supplierId);
       filters.push(`i.supplier_id = $${params.length}`);
+    } else if (req.user.role === 'buyer') {
+      params.push(req.user.business_name);
+      filters.push(`o.buyer_name = $${params.length}`);
     }
 
     if (req.query.status) {
@@ -146,7 +156,7 @@ router.post('/offers', async (req, res) => {
 
   try {
     const invoiceIds = Array.isArray(req.body.invoiceIds) ? req.body.invoiceIds : [];
-    const buyerName = String(req.body.buyerName || '').trim();
+    const buyerName = req.user.business_name;
     const discountRate = validateRate(req.body.discountRate, 'Discount rate', 0.001, 0.20);
     const platformFeeRate = validateRate(
       req.body.platformFeeRate || DEFAULT_PLATFORM_FEE_RATE,
@@ -155,9 +165,6 @@ router.post('/offers', async (req, res) => {
       0.05
     );
 
-    if (!buyerName) {
-      return res.status(400).json({ message: 'Buyer name is required.' });
-    }
     if (invoiceIds.length === 0) {
       return res.status(400).json({ message: 'Select at least one invoice.' });
     }
@@ -210,7 +217,7 @@ router.post('/offers', async (req, res) => {
         `,
         [
           invoiceKey,
-          buyerName || invoice.buyer_name,
+          buyerName,
           discountRate,
           platformFeeRate,
           calculated.invoiceAmount,
@@ -239,6 +246,10 @@ router.patch('/offers/:id/accept', async (req, res) => {
   const client = await pool.connect();
 
   try {
+    const supplierId = await getSupplierId(req.user);
+    if (!supplierId) {
+      return res.status(404).json({ message: 'No supplier profile is linked to this account.' });
+    }
     await client.query('BEGIN');
 
     const offerResult = await client.query(
@@ -246,9 +257,14 @@ router.patch('/offers/:id/accept', async (req, res) => {
         SELECT *
         FROM dynamic_discount_offers
         WHERE id = $1
+          AND EXISTS (
+            SELECT 1 FROM invoices i
+            WHERE i.id::TEXT = dynamic_discount_offers.invoice_id
+              AND i.supplier_id = $2
+          )
         FOR UPDATE
       `,
-      [req.params.id]
+      [req.params.id, supplierId]
     );
 
     if (offerResult.rowCount === 0) {
@@ -278,7 +294,7 @@ router.patch('/offers/:id/accept', async (req, res) => {
         INSERT INTO invoice_history (invoice_id, stage, actor)
         VALUES ($1, 'Payout Initiated', $2)
       `,
-      [offer.invoice_id, req.body.actorName || 'Supplier']
+      [offer.invoice_id, req.user.email]
     );
 
     const updatedOffer = await client.query(
@@ -306,6 +322,10 @@ router.patch('/offers/:id/accept', async (req, res) => {
 
 router.patch('/offers/:id/decline', async (req, res) => {
   try {
+    const supplierId = await getSupplierId(req.user);
+    if (!supplierId) {
+      return res.status(404).json({ message: 'No supplier profile is linked to this account.' });
+    }
     const result = await pool.query(
       `
         UPDATE dynamic_discount_offers
@@ -313,9 +333,15 @@ router.patch('/offers/:id/decline', async (req, res) => {
             responded_at = NOW()
         WHERE id = $1
           AND status = 'Offered'
+          AND EXISTS (
+            SELECT 1
+            FROM invoices i
+            WHERE i.id::TEXT = dynamic_discount_offers.invoice_id
+              AND i.supplier_id = $2
+          )
         RETURNING *
       `,
-      [req.params.id]
+      [req.params.id, supplierId]
     );
 
     if (result.rowCount === 0) {

@@ -3,6 +3,7 @@
 
 const express = require('express');
 const pool = require('../db');
+const { reconcileInvoice } = require('../services/calendarSync');
 
 const router = express.Router();
 
@@ -56,6 +57,7 @@ router.post('/', async (req, res) => {
 
     await logEvent(client, dispute.rows[0].id, 'Dispute filed', filed_by, reason);
     await client.query('COMMIT');
+    reconcileInvoice(invoice_id).catch((error) => console.error('Calendar dispute sync failed:', error.message));
 
     res.status(201).json(dispute.rows[0]);
   } catch (error) {
@@ -209,6 +211,7 @@ router.patch('/:id/resolve', async (req, res) => {
 
     await logEvent(client, req.params.id, 'Dispute ' + newStatus.toLowerCase(), actor, resolution_note);
     await client.query('COMMIT');
+    reconcileInvoice(dispute.rows[0].invoice_id).catch((error) => console.error('Calendar dispute sync failed:', error.message));
 
     res.json(updated.rows[0]);
   } catch (error) {

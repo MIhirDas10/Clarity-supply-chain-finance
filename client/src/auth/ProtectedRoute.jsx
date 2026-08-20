@@ -5,6 +5,7 @@ const HOME_BY_ROLE = {
   admin: '/admin',
   supplier: '/pipeline',
   buyer: '/buyer/dynamic-discounting',
+  funder: '/funder/portfolio',
 };
 
 // Wraps a page and only renders it if someone is logged in - and, if a role

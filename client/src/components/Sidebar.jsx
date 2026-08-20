@@ -9,12 +9,6 @@ import {
   Banknote,
   Bell,
   Settings,
-  CheckSquare,
-  ShieldAlert,
-  Store,
-  FolderLock,
-  Wallet,
-  Sparkles,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext.jsx";
@@ -26,15 +20,6 @@ const navItems = [
   { label: "Discount Calculator", to: "/discount", icon: Zap, built: true },        // Digonto
   { label: "My Invoices", to: "/my-invoices", icon: FileText, built: true },        // Apurba
   { label: "Invoice Pipeline", to: "/pipeline", icon: Activity, built: true },      // Mihir
-  { label: "Supplier Health", to: "/health", icon: Activity, built: true },         // Mihir
-  { label: "Buyer Credit", to: "/credit", icon: Activity, built: true },            // Mihir
-  { label: "Dashboard", to: "/portfolio", icon: Activity, built: true },   // Mihir - Investor Portfolio
-  { label: "Marketplace", to: "/marketplace", icon: Store, built: true },           // Digonto M3
-  { label: "Funder Wallet", to: "/wallet", icon: Wallet, built: true },             // Apurba M3
-  { label: "Auto-Invest Rules", to: "/auto-invest", icon: Sparkles, built: true },  // Apurba M3
-  { label: "Document Vault", to: "/vault", icon: FolderLock, built: true },           // Digonto M1
-  { label: "Buyer Confirmation", to: "/buyer-confirmation", icon: CheckSquare, built: true }, // Digonto M2
-  { label: "Dispute Centre", to: "/disputes", icon: ShieldAlert, built: true },     // Apurba M2
   { label: "Payout History", to: "/payouts", icon: Clock, built: true },            // Apurba
   { label: "Cash Flow", to: "/cashflow", icon: TrendingUp, built: true },           // Ameet
   { label: "Buyer-Funded Offers", to: "/buyer-funded-offers", icon: Banknote, built: true },  // Ameet M2

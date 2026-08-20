@@ -23,6 +23,7 @@ const DEMO_ACCOUNTS = [
   { role: 'admin',    business_name: 'Clarity Platform Admin', email: 'admin@clarity.io',    password: 'admin123',    status: 'Approved' },
   { role: 'supplier', business_name: 'Rahman Textiles Ltd',    email: 'supplier@clarity.io', password: 'supplier123', status: 'Approved' },
   { role: 'buyer',    business_name: 'Apex Footwear Ltd',      email: 'buyer@clarity.io',    password: 'buyer123',    status: 'Approved' },
+  { role: 'funder',   business_name: 'Clarity Capital Partners', email: 'funder@clarity.io', password: 'funder123',   status: 'Approved' },
   { role: 'supplier', business_name: 'New Textiles BD',        email: 'pending@clarity.io',  password: 'pending123',  status: 'Pending'  },
 ];
 
