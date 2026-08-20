@@ -13,7 +13,32 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 const pool = require('./db');
+
+// Demo accounts for the login/signup feature. Each insert is
+// ON CONFLICT (email) DO NOTHING, so running this again never duplicates or
+// overwrites an account someone (a teammate, or a real signup) already made.
+const DEMO_ACCOUNTS = [
+  { role: 'admin',    business_name: 'Clarity Platform Admin', email: 'admin@clarity.io',    password: 'admin123',    status: 'Approved' },
+  { role: 'supplier', business_name: 'Rahman Textiles Ltd',    email: 'supplier@clarity.io', password: 'supplier123', status: 'Approved' },
+  { role: 'buyer',    business_name: 'Apex Footwear Ltd',      email: 'buyer@clarity.io',    password: 'buyer123',    status: 'Approved' },
+  { role: 'supplier', business_name: 'New Textiles BD',        email: 'pending@clarity.io',  password: 'pending123',  status: 'Pending'  },
+];
+
+async function seedUsers() {
+  for (const account of DEMO_ACCOUNTS) {
+    const hash = await bcrypt.hash(account.password, 10);
+    await pool.query(
+      `INSERT INTO users (role, business_name, email, password_hash, status, approved_at)
+       VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 = 'Approved' THEN NOW() ELSE NULL END)
+       ON CONFLICT (email) DO NOTHING`,
+      [account.role, account.business_name, account.email, hash, account.status]
+    );
+  }
+  const count = await pool.query('SELECT COUNT(*) FROM users');
+  console.log('Demo accounts ready. Total users in the shared table:', count.rows[0].count);
+}
 
 async function setup() {
   const schema = fs.readFileSync(path.join(__dirname, 'sql', 'schema.sql'), 'utf8');
@@ -38,6 +63,8 @@ async function setup() {
   const all = await pool.query('SELECT COUNT(*) FROM invoices');
   console.log('Your invoice rows:', mine.rows[0].count);
   console.log('Rows in the shared table altogether:', all.rows[0].count);
+
+  await seedUsers();
 
   await pool.end();
 }

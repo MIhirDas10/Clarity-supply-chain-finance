@@ -501,3 +501,25 @@ CREATE TABLE IF NOT EXISTS auto_invest_rules (
 );
 
 CREATE INDEX IF NOT EXISTS idx_auto_invest_rules_funder ON auto_invest_rules(funder_id);
+
+--  Users, Login & Role-Based Access   (Common Workflow - shared by everyone)
+--
+--  Three roles: admin, supplier, buyer. Anyone can sign up as supplier or
+--  buyer; admin accounts are never created through the public signup form,
+--  only seeded or promoted by another admin.
+--
+--  A new signup starts as Pending. Only Approved accounts can log in - this
+--  is the KYB step from the requirements doc ("an admin reviews and approves
+--  or rejects the application within 48 hours").
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS users (
+  id            SERIAL PRIMARY KEY,
+  role          TEXT NOT NULL,                    -- 'admin' | 'supplier' | 'buyer'
+  business_name TEXT NOT NULL,
+  email         TEXT NOT NULL UNIQUE,
+  phone         TEXT,
+  password_hash TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'Pending',   -- Pending | Approved | Rejected
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  approved_at   TIMESTAMPTZ
+);

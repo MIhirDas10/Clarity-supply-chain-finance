@@ -1,0 +1,252 @@
+/* Login, Signup and the Admin approval page all render full-page, outside
+   the Sidebar/Header shell the rest of the app uses - there is no logged-in
+   user yet to show a sidebar for. Reuses the same design tokens from
+   digonto/index.css so it still looks like the rest of Clarity. */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page-bg);
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow-lg);
+  padding: 32px;
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.auth-logo-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-logo-text {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.auth-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.auth-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.auth-field {
+  margin-bottom: 16px;
+}
+
+.auth-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.auth-field input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.auth-field input:focus {
+  outline: none;
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* The three role cards on the signup page. */
+.auth-role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.auth-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 150ms;
+}
+
+.auth-role-card.selected {
+  border-color: var(--input-focus);
+  background: var(--accent-blue-bg);
+}
+
+.auth-role-card span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #0f172a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.auth-submit:hover {
+  opacity: 0.92;
+}
+
+.auth-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 18px;
+}
+
+.auth-switch a {
+  color: var(--input-focus);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-banner {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.auth-banner.bad {
+  background: var(--accent-red-bg);
+  color: var(--accent-red);
+}
+
+.auth-banner.ok {
+  background: var(--accent-green-bg);
+  color: var(--accent-green);
+}
+
+.auth-demo-hint {
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  border: 1px solid var(--border-light);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.auth-demo-hint b {
+  color: var(--text-secondary);
+}
+
+/* ---------- admin approval table ---------- */
+
+.auth-admin-page {
+  padding: 28px;
+  max-width: 1000px;
+}
+
+.auth-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.auth-admin-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+}
+
+.auth-chip {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.auth-chip.Pending { background: var(--accent-orange-bg); color: var(--accent-orange); }
+.auth-chip.Approved { background: var(--accent-green-bg); color: var(--accent-green); }
+.auth-chip.Rejected { background: var(--accent-red-bg); color: var(--accent-red); }
+
+.auth-approve-btn, .auth-reject-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  margin-right: 6px;
+  font-family: inherit;
+}
+
+.auth-approve-btn { background: var(--accent-green); color: #fff; }
+.auth-reject-btn { background: var(--accent-red); color: #fff; }

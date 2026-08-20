@@ -15,7 +15,9 @@ import {
   FolderLock,
   Wallet,
   Sparkles,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "../auth/AuthContext.jsx";
 
 // One sidebar for the whole platform. Each "built" item routes to a feature a
 // group member owns; the rest are honest placeholders for work not done yet.
@@ -41,6 +43,14 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const { user, logout } = useAuth();
+  const initials = (user?.business_name || "Supplier")
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <aside
       className="fixed left-0 top-0 bottom-0 w-[250px] flex flex-col z-30 border-r"
@@ -109,26 +119,34 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Bottom */}
+      {/* Bottom - the real logged-in user, not a placeholder */}
       <div className="px-5 py-4 border-t" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2.5">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium"
             style={{ backgroundColor: "var(--text-primary)" }}
           >
-            SA
+            {initials}
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <p
-              className="text-[12px] font-medium leading-tight"
+              className="text-[12px] font-medium leading-tight truncate"
               style={{ color: "var(--text-primary)" }}
             >
-              Supply Admin
+              {user?.business_name || "Supplier"}
             </p>
-            <p className="text-[10px]" style={{ color: "#64748B" }}>
-              admin@clarity.io
+            <p className="text-[10px] truncate" style={{ color: "#64748B" }}>
+              {user?.email}
             </p>
           </div>
+          <button
+            onClick={logout}
+            title="Log out"
+            className="p-1.5 rounded-md cursor-pointer"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            <LogOut size={15} />
+          </button>
         </div>
       </div>
     </aside>
