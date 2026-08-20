@@ -11,6 +11,8 @@ import {
   Settings,
   CheckSquare,
   ShieldAlert,
+  Store,
+  FolderLock,
 } from "lucide-react";
 
 // One sidebar for the whole platform. Each "built" item routes to a feature a
@@ -23,6 +25,8 @@ const navItems = [
   { label: "Supplier Health", to: "/health", icon: Activity, built: true },         // Mihir
   { label: "Buyer Credit", to: "/credit", icon: Activity, built: true },            // Mihir
   { label: "Dashboard", to: "/portfolio", icon: Activity, built: true },   // Mihir - Investor Portfolio
+  { label: "Marketplace", to: "/marketplace", icon: Store, built: true },           // Digonto M3
+  { label: "Document Vault", to: "/vault", icon: FolderLock, built: true },           // Digonto M1
   { label: "Buyer Confirmation", to: "/buyer-confirmation", icon: CheckSquare, built: true }, // Digonto M2
   { label: "Dispute Centre", to: "/disputes", icon: ShieldAlert, built: true },     // Apurba M2
   { label: "Payout History", to: "/payouts", icon: Clock, built: true },            // Apurba

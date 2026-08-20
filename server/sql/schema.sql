@@ -403,3 +403,40 @@ CREATE TABLE IF NOT EXISTS portfolio_targets (
   target_rate NUMERIC(6, 2) NOT NULL,   -- annualised target return %, e.g. 14.50
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ===========================================================================
+-- Digonto's Module 3 - Funder Marketplace & Risk Rating Engine
+-- ===========================================================================
+
+-- 1. Add risk rating, expected yield, and funded_at columns to invoices
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS risk_score INTEGER;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS risk_rating TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS expected_yield NUMERIC(5, 2);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS funded_at TIMESTAMPTZ;
+
+-- 2. Create detailed invoice_risk_evaluations table
+CREATE TABLE IF NOT EXISTS invoice_risk_evaluations (
+  id SERIAL PRIMARY KEY,
+  invoice_id UUID NOT NULL REFERENCES invoices(id),
+  timeliness_score INTEGER,
+  membership_score INTEGER,
+  volume_score INTEGER,
+  age_score INTEGER,
+  total_score INTEGER,
+  evaluated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(invoice_id)
+);
+
+-- ============================================================================
+-- MODULE 1: SUPPLIER PORTAL (Digonta)
+-- ============================================================================
+-- Document Vault Feature
+CREATE TABLE IF NOT EXISTS supplier_documents (
+    id SERIAL PRIMARY KEY,
+    supplier_id VARCHAR(50) NOT NULL,
+    doc_type VARCHAR(50) NOT NULL,
+    file_url TEXT NOT NULL,
+    file_name VARCHAR(255),
+    notes TEXT,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

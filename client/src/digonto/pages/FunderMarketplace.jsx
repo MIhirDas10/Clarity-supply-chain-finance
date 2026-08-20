@@ -1,0 +1,200 @@
+import React, { useState, useEffect } from 'react';
+import FundingModal from '../components/FundingModal';
+
+const mockFunders = [
+  { id: 'F-1', name: 'BRAC Bank' },
+  { id: 'F-2', name: 'IDLC Finance' },
+  { id: 'F-3', name: 'City Bank NBFI' }
+];
+
+const FunderMarketplace = () => {
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedFunder, setSelectedFunder] = useState(mockFunders[0]);
+  const [filterRating, setFilterRating] = useState('All');
+  
+  // Modal state
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+  const fetchInvoices = async () => {
+    try {
+      const response = await fetch(`/api/marketplace/invoices?riskRating=${filterRating}`);
+      const data = await response.json();
+      setInvoices(data);
+    } catch (error) {
+      console.error('Error fetching marketplace invoices:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [filterRating]);
+
+  const handleFundSuccess = (invoiceId) => {
+    // Remove funded invoice from the list
+    setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+    setSelectedInvoice(null);
+  };
+
+  // Grouping for featured
+  const featuredInvoices = invoices.filter(inv => inv.risk_rating === 'Rating A').slice(0, 3);
+
+  return (
+    <div className="p-8 bg-slate-50 min-h-screen font-sans">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Header & Funder Selector */}
+        <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Marketplace</h1>
+            <p className="text-slate-500 mt-1">Discover and fund high-yield invoice discounting opportunities.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-600">Acting as:</span>
+            <select 
+              value={selectedFunder.id}
+              onChange={(e) => {
+                const f = mockFunders.find(x => x.id === e.target.value);
+                if (f) setSelectedFunder(f);
+              }}
+              className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+            >
+              {mockFunders.map(f => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+          <label className="text-sm font-semibold text-slate-700">Filter by Risk:</label>
+          <select 
+            value={filterRating} 
+            onChange={e => setFilterRating(e.target.value)}
+            className="border border-slate-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+          >
+            <option value="All">All Ratings</option>
+            <option value="Rating A">Rating A</option>
+            <option value="Rating B">Rating B</option>
+            <option value="Rating C">Rating C</option>
+          </select>
+        </div>
+
+        {/* Featured Section */}
+        {featuredInvoices.length > 0 && (
+          <section>
+            <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              🌟 Featured Low Risk Opportunities
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {featuredInvoices.map(inv => (
+                <div key={inv.id} className="bg-white rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md transition">
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                      {inv.risk_rating}
+                    </span>
+                    <span className="text-emerald-600 font-bold text-lg">{parseFloat(inv.expected_yield).toFixed(2)}% Yield</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900">{inv.supplier_name || `Supplier #${inv.supplier_id}`}</h3>
+                  <p className="text-sm text-slate-500 mb-4">Buyer: {inv.buyer_name}</p>
+                  <div className="flex justify-between text-sm mb-6">
+                    <div>
+                      <p className="text-slate-500">Amount</p>
+                      <p className="font-semibold text-slate-900">৳ {parseFloat(inv.invoice_amount || inv.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-slate-500">Maturity</p>
+                      <p className="font-semibold text-slate-900">{new Date(inv.due_date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedInvoice(inv)}
+                    className="w-full py-2 bg-slate-900 text-white rounded hover:bg-slate-800 transition font-medium"
+                  >
+                    Fund Invoice
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* All Open Listings */}
+        <section>
+          <h2 className="text-xl font-bold text-slate-900 mb-4">All Open Listings</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            {loading ? (
+              <div className="p-8 text-center text-slate-500">Loading invoices...</div>
+            ) : invoices.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">No open listings available.</div>
+            ) : (
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Buyer / Supplier</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rating</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Maturity Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Yield</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {invoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50 transition">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-slate-900">{inv.buyer_name}</div>
+                        <div className="text-xs text-slate-500">{inv.supplier_name || `Supplier #${inv.supplier_id}`}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          inv.risk_rating === 'Rating A' ? 'bg-emerald-100 text-emerald-800' :
+                          inv.risk_rating === 'Rating B' ? 'bg-blue-100 text-blue-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {inv.risk_rating || 'Unrated'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                        ৳ {parseFloat(inv.invoice_amount || inv.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                        {new Date(inv.due_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
+                        {parseFloat(inv.expected_yield || 0).toFixed(2)}%
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button 
+                          onClick={() => setSelectedInvoice(inv)}
+                          className="text-slate-600 hover:text-slate-900 font-semibold border border-slate-300 rounded px-3 py-1 hover:bg-slate-100"
+                        >
+                          Fund
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+
+      </div>
+
+      {selectedInvoice && (
+        <FundingModal 
+          invoice={selectedInvoice}
+          funder={selectedFunder}
+          onClose={() => setSelectedInvoice(null)}
+          onSuccess={handleFundSuccess}
+        />
+      )}
+    </div>
+  );
+};
+
+export default FunderMarketplace;

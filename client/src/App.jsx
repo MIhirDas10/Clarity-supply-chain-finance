@@ -11,6 +11,8 @@ import DisputeCentre from "./apurba/DisputeCentre.jsx";            // Apurba - D
 import PayoutHistory from "./apurba/PayoutHistory.jsx";            // Apurba - Payout History
 import InvoicesPage from "./digonto/pages/Invoices.jsx";       // Digonto - Discount Calculator (M1)
 import BuyerConfirmation from "./digonto/pages/BuyerConfirmation.jsx"; // Digonto - Buyer Confirmation (M2)
+import FunderMarketplace from "./digonto/pages/FunderMarketplace.jsx"; // Digonto - Funder Marketplace (M3)
+import DocumentVault from "./digonto/pages/DocumentVault.jsx"; // Digonto - Document Vault (M1)
 import CashFlowForecast from "./ameet/CashFlowForecast.jsx";   // Ameet   - Cash Flow Forecast Engine
 import DynamicDiscounting from "./ameet/DynamicDiscounting.jsx"; // Module 2 - Buyer-funded early payment
 import SupplierDynamicDiscountOffers from "./ameet/SupplierDynamicDiscountOffers.jsx";
@@ -75,6 +77,8 @@ function App() {
         <Route path="/buyer-confirmation" element={<SupplierLayout><BuyerConfirmation /></SupplierLayout>} />
         <Route path="/disputes" element={<SupplierLayout><Content><DisputeCentre /></Content></SupplierLayout>} />
         <Route path="/payouts" element={<SupplierLayout><Content><PayoutHistory /></Content></SupplierLayout>} />
+        <Route path="/vault" element={<SupplierLayout><DocumentVault /></SupplierLayout>} />
+        <Route path="/marketplace" element={<SupplierLayout><FunderMarketplace /></SupplierLayout>} />
         <Route path="/cashflow" element={<SupplierLayout><CashFlowForecast /></SupplierLayout>} />
         <Route path="/buyer-funded-offers" element={<SupplierLayout><SupplierDynamicDiscountOffers /></SupplierLayout>} />
         <Route path="/health" element={<SupplierLayout><Content><SupplierHealth /></Content></SupplierLayout>} />

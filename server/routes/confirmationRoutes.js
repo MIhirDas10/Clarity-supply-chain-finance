@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { calculateInvoiceRisk } = require('../services/riskRatingEngine');
 
 // GET /api/confirmations/pending?buyer=X
 router.get('/pending', async (req, res) => {
@@ -79,12 +80,29 @@ router.post('/:invoiceId/confirm', async (req, res) => {
     );
     const confirmationId = confirmRes.rows[0].id;
 
-    // 3. Update invoice status to Buyer Confirmed and set timestamps
+    // Calculate Risk Rating (Mocked buyer data as per constraints/plan)
+    const buyerData = {
+      onTimePaymentsRatio: 0.92,
+      isVerified: true,
+      accountAgeMonths: 36,
+      averageInvoiceAmount: 500000
+    };
+    const riskResult = calculateInvoiceRisk(buyerData, invoice.invoice_amount || invoice.amount || 0);
+
+    // 3. Update invoice status to Buyer Confirmed, set timestamps and risk fields
     await client.query(
       `UPDATE invoices 
-       SET status = 'Buyer Confirmed', current_stage = 'Buyer Confirmed', buyer_confirmed_at = NOW(), confirmation_id = $2, updated_at = NOW() 
+       SET status = 'Buyer Confirmed', current_stage = 'Buyer Confirmed', buyer_confirmed_at = NOW(), confirmation_id = $2, updated_at = NOW(),
+           risk_score = $3, risk_rating = $4, expected_yield = $5
        WHERE id = $1`,
-      [invoiceId, confirmationId]
+      [invoiceId, confirmationId, riskResult.score, riskResult.rating, riskResult.expectedYield]
+    );
+
+    // 3b. Save detailed evaluation
+    await client.query(
+      `INSERT INTO invoice_risk_evaluations (invoice_id, timeliness_score, membership_score, volume_score, age_score, total_score)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [invoiceId, riskResult.details.timelinessScore, riskResult.details.membershipScore, riskResult.details.volumeScore, riskResult.details.ageScore, riskResult.score]
     );
 
     // 4. Record in invoice_history (Mihir's pipeline expectation)

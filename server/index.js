@@ -27,13 +27,15 @@ const creditRoutes = require('./routes/creditRoutes'); // Mihir - Buyer Credit S
 
 const cashflowRoutes = require('./routes/cashflowRoutes');  // Ameet (Cash Flow Forecast Engine)
 const confirmationRoutes = require('./routes/confirmationRoutes'); // Digonto (M2 Confirmations)
+const documentRoutes = require('./routes/documentRoutes'); // Digonto (M1 Document Vault)
 const dynamicDiscountingRoutes = require('./routes/dynamicDiscountingRoutes'); // Module 2
+const marketplaceRoutes = require('./routes/marketplaceRoutes'); // Digonto (M3 Marketplace)
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 1633;
 
 app.use(cors());          // lets the React client (Vite dev server) call this API
 // 10mb rather than the 100kb default: an invoice photo sent as a data URI is
@@ -47,12 +49,16 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payouts', payoutRoutes);
+app.use('/api/documents', documentRoutes);
 
 // Ameet - Cash Flow Forecast Engine
 app.use('/api/cashflow', cashflowRoutes);
 
 // Digonto - Module 2 Buyer Confirmation
 app.use('/api/confirmations', confirmationRoutes);
+
+// Digonto - Module 3 Funder Marketplace
+app.use('/api/marketplace', marketplaceRoutes);
 
 // Module 2 - buyer-funded early payment offers
 app.use('/api/dynamic-discounting', dynamicDiscountingRoutes);
