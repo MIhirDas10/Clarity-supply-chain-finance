@@ -1,14 +1,37 @@
 const pool = require('../db');
 
-// The four score components and their weights. They sum to 1.0.
+// The four score components and their default weights. They sum to 1.0.
 // This is a shared service: the discount calculator and risk rating engine
-// read the score this produces.
-const WEIGHTS = {
+// read the score this produces. The weights are tunable at runtime through
+// GET/PATCH /api/credit/config (stored in the credit_config table); these are
+// the fallback used when no config row exists yet.
+const DEFAULT_WEIGHTS = {
     paymentSpeed: 0.30,   // how fast the buyer pays
     reliability: 0.25,    // how rarely they go overdue
     disputeFree: 0.25,    // how rarely they dispute
     trackRecord: 0.20     // how established they are (confirmations + volume)
 };
+
+// Read the tunable component weights from credit_config (single row, id = 1),
+// falling back to the defaults if the table/row is missing or unreadable.
+async function loadWeights() {
+    try {
+        const r = await pool.query(
+            'SELECT payment_speed, reliability, dispute_free, track_record FROM credit_config WHERE id = 1'
+        );
+        if (r.rows.length === 0) return { ...DEFAULT_WEIGHTS };
+        const row = r.rows[0];
+        return {
+            paymentSpeed: Number(row.payment_speed),
+            reliability: Number(row.reliability),
+            disputeFree: Number(row.dispute_free),
+            trackRecord: Number(row.track_record)
+        };
+    } catch (error) {
+        console.error('Could not read credit_config, using defaults:', error.message);
+        return { ...DEFAULT_WEIGHTS };
+    }
+}
 
 function clamp(n, lo, hi) {
     if (n < lo) return lo;
@@ -32,6 +55,7 @@ function ratingFor(score) {
 // credit score with a transparent component breakdown and reasons.
 // If buyerName is given, only that buyer is scored.
 async function computeScores(buyerName) {
+    const WEIGHTS = await loadWeights();
     let query = `
         SELECT buyer_name, status, invoice_amount, funder_id,
                submitted_date, due_date, payment_date
@@ -198,20 +222,29 @@ async function runRecalculation() {
         const entry = scores[i];
 
         const prev = await pool.query(
-            'SELECT score FROM buyer_credit_score WHERE buyer_name = $1',
+            'SELECT score, manual_override FROM buyer_credit_score WHERE buyer_name = $1',
             [entry.buyerName]
         );
         let oldScore = null;
+        let isOverridden = false;
         if (prev.rows.length > 0) {
             oldScore = prev.rows[0].score;
+            isOverridden = prev.rows[0].manual_override === true;
         }
 
-        // Save the latest score/rating.
+        // A manually overridden score is pinned by an analyst - a recompute must
+        // not silently replace it, so leave the row (and its history) untouched.
+        if (isOverridden) {
+            continue;
+        }
+
+        // Save the latest score/rating (never clobber a manual override).
         await pool.query(`
             INSERT INTO buyer_credit_score (buyer_name, score, rating, updated_at)
             VALUES ($1, $2, $3, NOW())
             ON CONFLICT (buyer_name)
             DO UPDATE SET score = $2, rating = $3, updated_at = NOW()
+            WHERE buyer_credit_score.manual_override IS NOT TRUE
         `, [entry.buyerName, entry.score, entry.rating]);
 
         // Only record history when the score is new or actually changed.
@@ -230,11 +263,49 @@ async function runRecalculation() {
 // Exported so the invoice pipeline can refresh scores after a status change.
 exports.runRecalculation = runRecalculation;
 
+// A manual override lets an analyst pin a score by hand (with a reason written
+// to history). When present it wins over the computed score, but the computed
+// components/metrics are still shown so the override stays transparent.
+async function loadOverrides(buyerName) {
+    const overrides = {};
+    try {
+        let q = 'SELECT buyer_name, score, rating, override_reason FROM buyer_credit_score WHERE manual_override = TRUE';
+        const params = [];
+        if (buyerName) { params.push(buyerName); q += ' AND buyer_name = $1'; }
+        const r = await pool.query(q, params);
+        r.rows.forEach(row => {
+            overrides[row.buyer_name] = {
+                score: row.score, rating: row.rating, reason: row.override_reason
+            };
+        });
+    } catch (error) {
+        // manual_override column may not exist on an older DB - treat as none.
+        console.error('Could not read overrides:', error.message);
+    }
+    return overrides;
+}
+
+// Overlay a manual override on a computed score entry (if one exists for it).
+function applyOverride(entry, overrides) {
+    const o = overrides[entry.buyerName];
+    if (!o) return entry;
+    return {
+        ...entry,
+        score: o.score,
+        rating: o.rating,
+        computedScore: entry.score,    // keep the machine score for reference
+        overridden: true,
+        overrideReason: o.reason
+    };
+}
+
 // GET /api/credit/buyers
 // Every buyer with current score, rating, components, and metrics.
 exports.getBuyers = async (req, res) => {
     try {
-        const scores = await computeScores();
+        let scores = await computeScores();
+        const overrides = await loadOverrides();
+        scores = scores.map(s => applyOverride(s, overrides));
         // sort worst-first so risky buyers surface at the top
         scores.sort((a, b) => a.score - b.score);
         res.status(200).json(scores);
@@ -253,7 +324,8 @@ exports.getBuyer = async (req, res) => {
         if (scores.length === 0) {
             return res.status(404).json({ error: 'Buyer not found' });
         }
-        res.status(200).json(scores[0]);
+        const overrides = await loadOverrides(req.params.name);
+        res.status(200).json(applyOverride(scores[0], overrides));
     } catch (error) {
         console.error('Credit Buyer Error:', error);
         res.status(500).json({ error: 'Failed to compute buyer credit score' });
@@ -317,5 +389,176 @@ exports.getSummary = async (req, res) => {
     } catch (error) {
         console.error('Credit Summary Error:', error);
         res.status(500).json({ error: 'Failed to compute credit summary' });
+    }
+};
+
+// ===========================================================================
+// Weights config, review notes & manual override (write side of the feature).
+//
+// These give Feature 4 a full GET + POST + PATCH + DELETE surface:
+//   - credit_config : tune the four component weights (they must sum to 1.0)
+//   - credit_notes  : analyst credit-review notes per buyer
+//   - override      : pin a buyer's score by hand, with the reason logged to
+//                     buyer_credit_history so the change stays explainable.
+// ===========================================================================
+
+// GET /api/credit/config - the current component weights.
+exports.getConfig = async (req, res) => {
+    try {
+        const weights = await loadWeights();
+        res.status(200).json({ weights, defaults: DEFAULT_WEIGHTS });
+    } catch (error) {
+        console.error('Credit Config Read Error:', error);
+        res.status(500).json({ error: 'Failed to load config' });
+    }
+};
+
+// PATCH /api/credit/config
+// body: { paymentSpeed, reliability, disputeFree, trackRecord } as fractions.
+// Any subset may be sent; the four are then normalised to sum to 1.0 so the
+// score stays on a 0-100 scale whatever the analyst enters.
+exports.updateConfig = async (req, res) => {
+    try {
+        const current = await loadWeights();
+        const merged = {
+            paymentSpeed: req.body.paymentSpeed !== undefined ? Number(req.body.paymentSpeed) : current.paymentSpeed,
+            reliability: req.body.reliability !== undefined ? Number(req.body.reliability) : current.reliability,
+            disputeFree: req.body.disputeFree !== undefined ? Number(req.body.disputeFree) : current.disputeFree,
+            trackRecord: req.body.trackRecord !== undefined ? Number(req.body.trackRecord) : current.trackRecord
+        };
+        const vals = Object.values(merged);
+        if (vals.some(v => !isFinite(v) || v < 0)) {
+            return res.status(400).json({ error: 'Weights must be non-negative numbers' });
+        }
+        const total = vals.reduce((s, v) => s + v, 0);
+        if (total <= 0) {
+            return res.status(400).json({ error: 'Weights cannot all be zero' });
+        }
+        // Normalise to sum to exactly 1.0.
+        const norm = {
+            paymentSpeed: merged.paymentSpeed / total,
+            reliability: merged.reliability / total,
+            disputeFree: merged.disputeFree / total,
+            trackRecord: merged.trackRecord / total
+        };
+        await pool.query(`
+            INSERT INTO credit_config (id, payment_speed, reliability, dispute_free, track_record, updated_at)
+            VALUES (1, $1, $2, $3, $4, NOW())
+            ON CONFLICT (id)
+            DO UPDATE SET payment_speed = $1, reliability = $2, dispute_free = $3, track_record = $4, updated_at = NOW()
+        `, [norm.paymentSpeed, norm.reliability, norm.disputeFree, norm.trackRecord]);
+        res.status(200).json({ message: 'Weights updated', weights: norm });
+    } catch (error) {
+        console.error('Credit Config Update Error:', error);
+        res.status(500).json({ error: 'Failed to update config' });
+    }
+};
+
+// GET /api/credit/buyers/:name/notes - analyst review notes for one buyer.
+exports.getNotes = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM credit_notes WHERE buyer_name = $1 ORDER BY created_at DESC',
+            [req.params.name]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Credit Notes Read Error:', error);
+        res.status(500).json({ error: 'Failed to load notes' });
+    }
+};
+
+// POST /api/credit/buyers/:name/notes
+// body: { note, author? }
+exports.addNote = async (req, res) => {
+    try {
+        const { note, author } = req.body;
+        if (!note || !String(note).trim()) {
+            return res.status(400).json({ error: 'A non-empty note is required' });
+        }
+        const result = await pool.query(`
+            INSERT INTO credit_notes (buyer_name, note, author)
+            VALUES ($1, $2, $3)
+            RETURNING *
+        `, [req.params.name, String(note).trim(), author ? String(author).trim() : 'Analyst']);
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Credit Add Note Error:', error);
+        res.status(500).json({ error: 'Failed to add note' });
+    }
+};
+
+// DELETE /api/credit/buyers/:name/notes/:id
+exports.deleteNote = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'DELETE FROM credit_notes WHERE id = $1 AND buyer_name = $2 RETURNING id',
+            [Number(req.params.id), req.params.name]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
+        res.status(200).json({ message: 'Note deleted', id: result.rows[0].id });
+    } catch (error) {
+        console.error('Credit Delete Note Error:', error);
+        res.status(500).json({ error: 'Failed to delete note' });
+    }
+};
+
+// PATCH /api/credit/buyers/:name/override
+// body: { score, reason }  - pin a score by hand; reason is required and is
+// written to buyer_credit_history so the manual change is auditable.
+// Send score = null to clear the override and fall back to the computed score.
+exports.override = async (req, res) => {
+    try {
+        const name = req.params.name;
+        const { score, reason } = req.body;
+
+        // Clear the override.
+        if (score === null || score === undefined || score === '') {
+            const prev = await pool.query('SELECT score FROM buyer_credit_score WHERE buyer_name = $1', [name]);
+            const oldScore = prev.rows.length > 0 ? prev.rows[0].score : null;
+            await pool.query(`
+                UPDATE buyer_credit_score
+                SET manual_override = FALSE, override_reason = NULL, updated_at = NOW()
+                WHERE buyer_name = $1
+            `, [name]);
+            await pool.query(`
+                INSERT INTO buyer_credit_history (buyer_name, score, old_score, reason)
+                VALUES ($1, $2, $3, $4)
+            `, [name, oldScore, oldScore, `Manual override cleared${reason ? ': ' + String(reason).trim() : ''}.`]);
+            return res.status(200).json({ message: 'Override cleared', buyerName: name });
+        }
+
+        const newScore = Math.round(Number(score));
+        if (!isFinite(newScore) || newScore < 0 || newScore > 100) {
+            return res.status(400).json({ error: 'score must be a number between 0 and 100 (or null to clear)' });
+        }
+        if (!reason || !String(reason).trim()) {
+            return res.status(400).json({ error: 'A reason is required for a manual override' });
+        }
+        const rating = ratingFor(newScore);
+        const cleanReason = String(reason).trim();
+
+        const prev = await pool.query('SELECT score FROM buyer_credit_score WHERE buyer_name = $1', [name]);
+        const oldScore = prev.rows.length > 0 ? prev.rows[0].score : null;
+
+        await pool.query(`
+            INSERT INTO buyer_credit_score (buyer_name, score, rating, manual_override, override_reason, updated_at)
+            VALUES ($1, $2, $3, TRUE, $4, NOW())
+            ON CONFLICT (buyer_name)
+            DO UPDATE SET score = $2, rating = $3, manual_override = TRUE, override_reason = $4, updated_at = NOW()
+        `, [name, newScore, rating, cleanReason]);
+
+        await pool.query(`
+            INSERT INTO buyer_credit_history (buyer_name, score, old_score, reason)
+            VALUES ($1, $2, $3, $4)
+        `, [name, newScore, oldScore, `Manual override to ${newScore} (${rating}): ${cleanReason}`]);
+
+        res.status(200).json({
+            message: 'Score overridden', buyerName: name,
+            score: newScore, rating, overridden: true, overrideReason: cleanReason
+        });
+    } catch (error) {
+        console.error('Credit Override Error:', error);
+        res.status(500).json({ error: 'Failed to override score' });
     }
 };
