@@ -104,23 +104,15 @@
         }
       }
     },
-<<<<<<< Updated upstream
     "/api/health/suppliers": {
       "get": {
         "tags": ["Health"],
         "summary": "List all suppliers' health",
         "description": "Returns every supplier with their computed health score and band.",
-=======
-    "/api/confirmations/pending": {
-      "get": {
-        "summary": "Get pending confirmations",
-        "description": "Get a list of invoices that require buyer confirmation.",
->>>>>>> Stashed changes
         "parameters": [
           {
             "name": "buyer",
             "in": "query",
-<<<<<<< Updated upstream
             "required": false,
             "schema": { "type": "string" },
             "description": "Optional buyer name to filter suppliers."
@@ -173,35 +165,6 @@
         "tags": ["Health"],
         "summary": "Get health summary",
         "description": "Returns counts and percentages of suppliers in each band.",
-=======
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Name of the buyer"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "A JSON array of pending invoices"
-          }
-        }
-      }
-    },
-    "/api/confirmations/history": {
-      "get": {
-        "summary": "Get confirmation history",
-        "description": "Get a list of invoices that have already been confirmed or disputed by the buyer.",
->>>>>>> Stashed changes
-        "parameters": [
-          {
-            "name": "buyer",
-            "in": "query",
-<<<<<<< Updated upstream
-            "required": false,
-            "schema": { "type": "string" }
-          }
-        ],
         "responses": {
           "200": { "description": "JSON object with summary statistics" }
         }
@@ -232,32 +195,11 @@
         "tags": ["Health"],
         "summary": "Acknowledge alert",
         "description": "Marks a specific alert as read (seen by the buyer).",
-=======
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Name of the buyer"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "A JSON array of processed invoices"
-          }
-        }
-      }
-    },
-    "/api/confirmations/{id}/confirm": {
-      "post": {
-        "summary": "Confirm an invoice",
-        "description": "Confirm an invoice as a buyer, moving it to 'Buyer Confirmed' status.",
->>>>>>> Stashed changes
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-<<<<<<< Updated upstream
             "schema": { "type": "string" }
           }
         ],
@@ -290,13 +232,6 @@
         "tags": ["Health"],
         "summary": "Update health scoring configuration",
         "description": "Update the band thresholds for Watch and Distress.",
-=======
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
->>>>>>> Stashed changes
         "requestBody": {
           "required": true,
           "content": {
@@ -304,27 +239,96 @@
               "schema": {
                 "type": "object",
                 "properties": {
-<<<<<<< Updated upstream
                   "watchBelow": { "type": "number", "example": 80 },
                   "distressBelow": { "type": "number", "example": 60 }
-=======
-                  "buyer_name": {
-                    "type": "string"
-                  },
-                  "acknowledgment_text": {
-                    "type": "string"
-                  }
->>>>>>> Stashed changes
                 }
               }
             }
           }
         },
         "responses": {
-<<<<<<< Updated upstream
           "200": { "description": "Configuration updated successfully" },
           "400": { "description": "Invalid thresholds" }
-=======
+        }
+      }
+    },
+    "/api/confirmations/pending": {
+      "get": {
+        "summary": "Get pending confirmations",
+        "description": "Get a list of invoices that require buyer confirmation.",
+        "parameters": [
+          {
+            "name": "buyer",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the buyer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A JSON array of pending invoices"
+          }
+        }
+      }
+    },
+    "/api/confirmations/history": {
+      "get": {
+        "summary": "Get confirmation history",
+        "description": "Get a list of invoices that have already been confirmed or disputed by the buyer.",
+        "parameters": [
+          {
+            "name": "buyer",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the buyer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A JSON array of processed invoices"
+          }
+        }
+      }
+    },
+    "/api/confirmations/{id}/confirm": {
+      "post": {
+        "summary": "Confirm an invoice",
+        "description": "Confirm an invoice as a buyer, moving it to 'Buyer Confirmed' status.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "buyer_name": {
+                    "type": "string"
+                  },
+                  "acknowledgment_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
           "200": {
             "description": "Invoice confirmed successfully"
           },
@@ -487,7 +491,6 @@
           "404": {
             "description": "Dispute not found"
           }
->>>>>>> Stashed changes
         }
       }
     }
