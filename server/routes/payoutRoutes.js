@@ -24,7 +24,7 @@ const LEDGER_QUERY = `
     TO_CHAR(i.submitted_date, 'YYYY-MM-DD') AS submitted_date,
     TO_CHAR(i.payment_date, 'YYYY-MM-DD') AS payment_date
   FROM invoices i
-  LEFT JOIN funders f ON f.id = i.funder_id
+  LEFT JOIN funders f ON f.id::TEXT = i.funder_id
   WHERE i.supplier_id = $1
   ORDER BY i.submitted_date DESC NULLS LAST, i.id DESC
 `;

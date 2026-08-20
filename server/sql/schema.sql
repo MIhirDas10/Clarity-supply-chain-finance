@@ -440,3 +440,64 @@ CREATE TABLE IF NOT EXISTS supplier_documents (
     notes TEXT,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ===========================================================================
+-- Module 3: Funder Deposit & Invoice Funding via bKash (UddoktaPay)
+--           + Auto-Invest Rules Engine        (Apurba Roy, SL 3)
+-- ===========================================================================
+
+-- The Funder Marketplace's frontend identifies a funder with a short text
+-- code ("F-1"), not the numeric funders.id the old payout seed data used.
+-- funder_id was still INTEGER, so writing "F-1" into it would fail outright.
+-- Widened the same way supplier_id was widened above, for the same reason.
+ALTER TABLE invoices ALTER COLUMN funder_id TYPE TEXT USING funder_id::TEXT;
+
+-- One row per funder's cash balance. Money only ever enters through a
+-- verified UddoktaPay deposit and only ever leaves by funding an invoice, so
+-- the balance is always reconstructable from wallet_transactions alone - it
+-- is stored directly too, only so a balance check does not need to sum the
+-- whole ledger every time.
+CREATE TABLE IF NOT EXISTS funder_wallets (
+  funder_id   TEXT PRIMARY KEY,
+  funder_name TEXT NOT NULL,
+  balance     NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- The ledger. A deposit is written here the moment it is started (status
+-- Pending) and flipped to Completed once UddoktaPay confirms it - looking a
+-- deposit up by uddoktapay_id before crediting is what stops the same
+-- payment being credited twice if the verify step is ever called more than
+-- once. An invoice funding row is written straight to Completed, since
+-- debiting the wallet and funding the invoice happen in one transaction.
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id            SERIAL PRIMARY KEY,
+  funder_id     TEXT NOT NULL REFERENCES funder_wallets(funder_id),
+  type          TEXT NOT NULL,               -- Deposit | Invoice Funding
+  amount        NUMERIC(14, 2) NOT NULL,      -- positive = credit, negative = debit
+  balance_after NUMERIC(14, 2),               -- filled in once the row is Completed
+  invoice_id    TEXT,                          -- set when type = Invoice Funding
+  uddoktapay_id TEXT UNIQUE,                    -- UddoktaPay's charge id, set when type = Deposit
+  status        TEXT NOT NULL DEFAULT 'Completed', -- Pending | Completed | Failed
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  completed_at  TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_funder ON wallet_transactions(funder_id);
+
+-- One rule = "auto-fund anything that matches these criteria, up to this
+-- much capital per invoice, whenever my wallet can cover it."
+CREATE TABLE IF NOT EXISTS auto_invest_rules (
+  id                      SERIAL PRIMARY KEY,
+  funder_id               TEXT NOT NULL,
+  funder_name             TEXT NOT NULL,
+  min_amount              NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  max_amount              NUMERIC(14, 2),               -- NULL = no upper limit
+  min_risk_rating         TEXT NOT NULL DEFAULT 'Rating C', -- Rating A/B/C; C accepts any rating
+  max_capital_per_invoice NUMERIC(14, 2) NOT NULL,
+  is_active               BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_auto_invest_rules_funder ON auto_invest_rules(funder_id);

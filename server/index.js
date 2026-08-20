@@ -19,6 +19,8 @@ const cors = require('cors');
 const invoiceRoutes = require('./routes/invoiceRoutes');   // Apurba - M1 Invoice Upload with OCR
 const disputeRoutes = require('./routes/disputeRoutes');   // Apurba - M2 Dispute Filing & Freeze
 const payoutRoutes = require('./routes/payoutRoutes');     // Apurba - payout ledger (supporting)
+const walletRoutes = require('./routes/walletRoutes');     // Apurba - M3 Funder Deposit & Funding (UddoktaPay)
+const autoInvestRoutes = require('./routes/autoInvestRoutes'); // Apurba - M3 Auto-Invest Rules Engine
 const pipelineRoutes = require('./routes/pipelineRoutes');  // Mihir (Supabase)
 const healthRoutes = require('./routes/healthRoutes');      // Mihir - Supplier Health Analytics
 const notificationRoutes = require('./routes/notificationRoutes'); // Mihir - Notification Center
@@ -50,6 +52,8 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payouts', payoutRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/auto-invest', autoInvestRoutes);
 
 // Ameet - Cash Flow Forecast Engine
 app.use('/api/cashflow', cashflowRoutes);
