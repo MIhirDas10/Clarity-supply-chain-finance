@@ -328,11 +328,11 @@ INSERT INTO supplier_names (supplier_id, name) VALUES
   ('SUP-004', 'Karnaphuli Traders')
 ON CONFLICT (supplier_id) DO NOTHING;
 
--- ---------------------------------------------------------------------------
--- Mihir's Buyer Credit Scoring Engine.
+-- ===========================================================================
+-- Mihir's Feature 4 - Buyer Credit Scoring Engine.
 --   buyer_credit_score    latest score/rating per buyer (read by other features)
 --   buyer_credit_history  one row per score change, with a reason (transparency)
--- ---------------------------------------------------------------------------
+-- ===========================================================================
 CREATE TABLE IF NOT EXISTS buyer_credit_score (
   buyer_name TEXT PRIMARY KEY,
   score      INTEGER,
@@ -347,4 +347,59 @@ CREATE TABLE IF NOT EXISTS buyer_credit_history (
   old_score  INTEGER,
   reason     TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- A manual override lets an analyst pin a score by hand (§7). These columns are
+-- added if an older buyer_credit_score table lacked them, so the recompute
+-- knows to leave an overridden row alone.
+ALTER TABLE buyer_credit_score ADD COLUMN IF NOT EXISTS manual_override BOOLEAN DEFAULT FALSE;
+ALTER TABLE buyer_credit_score ADD COLUMN IF NOT EXISTS override_reason TEXT;
+
+-- Tunable component weights for the score (single row, id = 1). Editing these
+-- through PATCH /api/credit/config changes how every buyer is scored. They are
+-- stored normalised to sum to 1.0.
+CREATE TABLE IF NOT EXISTS credit_config (
+  id            INTEGER PRIMARY KEY,
+  payment_speed NUMERIC(5, 4) NOT NULL,
+  reliability   NUMERIC(5, 4) NOT NULL,
+  dispute_free  NUMERIC(5, 4) NOT NULL,
+  track_record  NUMERIC(5, 4) NOT NULL,
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO credit_config (id, payment_speed, reliability, dispute_free, track_record)
+VALUES (1, 0.30, 0.25, 0.25, 0.20)
+ON CONFLICT (id) DO NOTHING;
+
+-- Analyst credit-review notes per buyer (§7).
+CREATE TABLE IF NOT EXISTS credit_notes (
+  id         SERIAL PRIMARY KEY,
+  buyer_name TEXT NOT NULL,
+  note       TEXT NOT NULL,
+  author     TEXT DEFAULT 'Analyst',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_credit_notes_buyer ON credit_notes(buyer_name);
+
+-- ===========================================================================
+-- Mihir's Feature 3 - Investor Portfolio: Investment Notes & Return Targets.
+--   portfolio_notes    a funder annotates/flags investments (§7)
+--   portfolio_targets  a funder's target return %, compared against projected
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS portfolio_notes (
+  id         SERIAL PRIMARY KEY,
+  funder_id  TEXT NOT NULL,
+  invoice_id INTEGER,            -- optional: a note can pin to one investment
+  note       TEXT NOT NULL,
+  flagged    BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_notes_funder ON portfolio_notes(funder_id);
+
+CREATE TABLE IF NOT EXISTS portfolio_targets (
+  funder_id   TEXT PRIMARY KEY,
+  target_rate NUMERIC(6, 2) NOT NULL,   -- annualised target return %, e.g. 14.50
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
 );

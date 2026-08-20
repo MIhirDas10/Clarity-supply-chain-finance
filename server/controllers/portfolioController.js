@@ -192,6 +192,20 @@ exports.getFunders = async (req, res) => {
     }
 };
 
+// Read a funder's saved target return %, or null if none set yet.
+async function loadTarget(funderId) {
+    try {
+        const r = await pool.query(
+            'SELECT target_rate FROM portfolio_targets WHERE funder_id = $1',
+            [String(funderId)]
+        );
+        return r.rows.length > 0 ? Number(r.rows[0].target_rate) : null;
+    } catch (error) {
+        console.error('Could not read portfolio target:', error.message);
+        return null;
+    }
+}
+
 // GET /api/portfolio/funders/:id
 exports.getFunderPortfolio = async (req, res) => {
     try {
@@ -199,7 +213,18 @@ exports.getFunderPortfolio = async (req, res) => {
         if (portfolios.length === 0) {
             return res.status(404).json({ error: 'No portfolio found for this funder' });
         }
-        res.status(200).json(portfolios[0]);
+        const detail = portfolios[0];
+
+        // Attach the funder's target return % and how the projected rate compares.
+        const targetRate = await loadTarget(req.params.id);
+        detail.targetRate = targetRate;
+        if (targetRate !== null) {
+            const projected = Number(detail.projectedAnnualRate) || 0;
+            detail.targetGap = Number((projected - targetRate).toFixed(1)); // + means ahead of target
+            detail.onTarget = projected >= targetRate;
+        }
+
+        res.status(200).json(detail);
     } catch (error) {
         console.error('Portfolio Detail Error:', error);
         res.status(500).json({ error: 'Failed to compute portfolio' });
@@ -224,5 +249,117 @@ exports.getSummary = async (req, res) => {
     } catch (error) {
         console.error('Portfolio Summary Error:', error);
         res.status(500).json({ error: 'Failed to compute portfolio summary' });
+    }
+};
+
+// ===========================================================================
+// Investment Notes & Return Targets (write side of the feature).
+//
+// A funder can annotate or flag individual investments (portfolio_notes) and
+// set a target return % that the dashboard compares against the projected rate
+// (portfolio_targets). These give Feature 3 a full GET + POST + PATCH + DELETE
+// surface instead of being read-only.
+// ===========================================================================
+
+// GET /api/portfolio/notes            all notes
+// GET /api/portfolio/notes?funder=1   only that funder's notes
+// GET /api/portfolio/notes?invoice=42 only that investment's notes
+exports.getNotes = async (req, res) => {
+    try {
+        const clauses = [];
+        const params = [];
+        if (req.query.funder) { params.push(String(req.query.funder)); clauses.push('funder_id = $' + params.length); }
+        if (req.query.invoice) { params.push(Number(req.query.invoice)); clauses.push('invoice_id = $' + params.length); }
+        const where = clauses.length ? ' WHERE ' + clauses.join(' AND ') : '';
+        const result = await pool.query(
+            'SELECT * FROM portfolio_notes' + where + ' ORDER BY created_at DESC',
+            params
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Portfolio Notes Error:', error);
+        res.status(500).json({ error: 'Failed to load notes' });
+    }
+};
+
+// POST /api/portfolio/notes
+// body: { funderId, invoiceId?, note, flagged? }
+exports.createNote = async (req, res) => {
+    try {
+        const { funderId, invoiceId, note, flagged } = req.body;
+        if (!funderId || !note || !String(note).trim()) {
+            return res.status(400).json({ error: 'funderId and a non-empty note are required' });
+        }
+        const result = await pool.query(`
+            INSERT INTO portfolio_notes (funder_id, invoice_id, note, flagged)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+        `, [String(funderId), invoiceId ? Number(invoiceId) : null, String(note).trim(), flagged === true]);
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Portfolio Create Note Error:', error);
+        res.status(500).json({ error: 'Failed to create note' });
+    }
+};
+
+// PATCH /api/portfolio/notes/:id
+// body: { note?, flagged? } - either field may be updated
+exports.updateNote = async (req, res) => {
+    try {
+        const { note, flagged } = req.body;
+        if (note === undefined && flagged === undefined) {
+            return res.status(400).json({ error: 'Provide note and/or flagged to update' });
+        }
+        const sets = [];
+        const params = [];
+        if (note !== undefined) { params.push(String(note).trim()); sets.push('note = $' + params.length); }
+        if (flagged !== undefined) { params.push(flagged === true); sets.push('flagged = $' + params.length); }
+        params.push(Number(req.params.id));
+        const result = await pool.query(
+            'UPDATE portfolio_notes SET ' + sets.join(', ') + ' WHERE id = $' + params.length + ' RETURNING *',
+            params
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Portfolio Update Note Error:', error);
+        res.status(500).json({ error: 'Failed to update note' });
+    }
+};
+
+// DELETE /api/portfolio/notes/:id
+exports.deleteNote = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'DELETE FROM portfolio_notes WHERE id = $1 RETURNING id',
+            [Number(req.params.id)]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
+        res.status(200).json({ message: 'Note deleted', id: result.rows[0].id });
+    } catch (error) {
+        console.error('Portfolio Delete Note Error:', error);
+        res.status(500).json({ error: 'Failed to delete note' });
+    }
+};
+
+// PUT /api/portfolio/funders/:id/target
+// body: { targetRate }  - annualised target return %, e.g. 14.5
+exports.setTarget = async (req, res) => {
+    try {
+        const rate = Number(req.body.targetRate);
+        if (!isFinite(rate) || rate < 0 || rate > 100) {
+            return res.status(400).json({ error: 'targetRate must be a number between 0 and 100' });
+        }
+        const result = await pool.query(`
+            INSERT INTO portfolio_targets (funder_id, target_rate, updated_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (funder_id)
+            DO UPDATE SET target_rate = $2, updated_at = NOW()
+            RETURNING *
+        `, [String(req.params.id), rate]);
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Portfolio Set Target Error:', error);
+        res.status(500).json({ error: 'Failed to set target' });
     }
 };

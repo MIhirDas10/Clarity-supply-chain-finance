@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
     Wallet, TrendingUp, CheckCircle2, Layers, Landmark,
-    Calendar, AlertTriangle, ChevronRight, Sun, Moon, Activity, ArrowUpRight
+    Calendar, AlertTriangle, ChevronRight, Sun, Moon, Activity, ArrowUpRight,
+    StickyNote, Target, Plus, Trash2, Flag, X
 } from 'lucide-react';
+import {
+    getFunderPortfolio, setFunderTarget,
+    getPortfolioNotes, createPortfolioNote, updatePortfolioNote, deletePortfolioNote
+} from '../services/api';
 
 export default function Portfolio() {
     const [funders, setFunders] = useState([]);
@@ -12,6 +17,51 @@ export default function Portfolio() {
     const [loading, setLoading] = useState(true);
     // Theme is local to this page; default dark to match the premium look.
     const [dark, setDark] = useState(() => localStorage.getItem('portfolioTheme') !== 'light');
+
+    // Investment Notes & Return Target panel (slide-over; page is unchanged when closed).
+    const [panelOpen, setPanelOpen] = useState(false);
+    const [notes, setNotes] = useState([]);
+    const [noteText, setNoteText] = useState('');
+    const [noteFlag, setNoteFlag] = useState(false);
+    const [targetInput, setTargetInput] = useState('');
+    const [savingTarget, setSavingTarget] = useState(false);
+
+    // Reload the notes list for the selected funder.
+    function reloadNotes(fid) {
+        if (!fid) return;
+        getPortfolioNotes({ funder: fid }).then(setNotes).catch(e => console.error(e));
+    }
+
+    async function addNote() {
+        if (!noteText.trim() || !selectedId) return;
+        try {
+            await createPortfolioNote({ funderId: selectedId, note: noteText.trim(), flagged: noteFlag });
+            setNoteText(''); setNoteFlag(false);
+            reloadNotes(selectedId);
+        } catch (e) { console.error(e); }
+    }
+
+    async function toggleFlag(n) {
+        try { await updatePortfolioNote(n.id, { flagged: !n.flagged }); reloadNotes(selectedId); }
+        catch (e) { console.error(e); }
+    }
+
+    async function removeNote(id) {
+        try { await deletePortfolioNote(id); reloadNotes(selectedId); }
+        catch (e) { console.error(e); }
+    }
+
+    async function saveTarget() {
+        const rate = Number(targetInput);
+        if (!isFinite(rate) || rate < 0 || rate > 100 || !selectedId) return;
+        setSavingTarget(true);
+        try {
+            await setFunderTarget(selectedId, rate);
+            const fresh = await getFunderPortfolio(selectedId);
+            setPortfolio(fresh);
+        } catch (e) { console.error(e); }
+        setSavingTarget(false);
+    }
 
     function toggleTheme() {
         setDark(prev => {
@@ -36,8 +86,13 @@ export default function Portfolio() {
         setLoading(true);
         fetch('/api/portfolio/funders/' + selectedId)
             .then(r => r.json())
-            .then(data => { setPortfolio(data); setLoading(false); })
+            .then(data => {
+                setPortfolio(data);
+                setTargetInput(data.targetRate != null ? String(data.targetRate) : '');
+                setLoading(false);
+            })
             .catch(e => { console.error(e); setLoading(false); });
+        reloadNotes(selectedId);
     }, [selectedId]);
 
     function money(n) { return '৳ ' + Number(n || 0).toLocaleString(); }
@@ -106,10 +161,19 @@ export default function Portfolio() {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h1 className={`text-2xl font-bold tracking-tight ${t.h1}`}>Investor Portfolio</h1>
+                        <h1 className={`text-2xl font-bold tracking-tight ${t.h1}`}>Dashboard</h1>
                         <p className={`mt-1 text-sm ${t.sub}`}>Deployed capital, expected and realized returns, and maturity schedule &mdash; from real transaction events.</p>
                     </div>
                     <div className="flex items-center gap-2.5">
+                        <button onClick={() => setPanelOpen(true)} className={`group h-10 pl-2 pr-3.5 rounded-xl border flex items-center gap-2 shadow-sm transition-all active:scale-95 hover:border-emerald-500/50 ${t.toggle}`} title="Notes & return target">
+                            <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-500 transition-colors group-hover:bg-emerald-500/20">
+                                <StickyNote className="w-3.5 h-3.5" />
+                            </span>
+                            <span className={`text-sm font-semibold whitespace-nowrap ${t.h1}`}>Notes &amp; Target</span>
+                            {notes.length > 0 && (
+                                <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold leading-none">{notes.length}</span>
+                            )}
+                        </button>
                         <button onClick={toggleTheme} className={`w-10 h-10 rounded-xl border flex items-center justify-center shadow-sm transition-all active:scale-95 ${t.toggle}`} title={dark ? 'Switch to light' : 'Switch to dark'}>
                             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                         </button>
@@ -211,6 +275,96 @@ export default function Portfolio() {
                     </div>
                 </div>
             </div>
+
+            {/* Slide-over: Return Target + Investment Notes (Feature 3 write side) */}
+            {panelOpen && (
+                <div className="absolute inset-0 z-30 flex justify-end">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPanelOpen(false)}></div>
+                    <div className={`relative w-full max-w-md h-full ${dark ? 'bg-[#0f1412]' : 'bg-white'} shadow-2xl flex flex-col`}>
+                        <div className={`flex items-center justify-between px-5 py-4 border-b ${t.divider}`}>
+                            <h2 className={`text-base font-bold ${t.h1} flex items-center gap-2`}>
+                                <StickyNote className="w-4 h-4 text-emerald-500" /> Notes &amp; Return Target
+                            </h2>
+                            <button onClick={() => setPanelOpen(false)} className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.muted} hover:${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-auto p-5 space-y-6">
+                            {/* Return target */}
+                            <div className={`${t.card} rounded-xl p-4`}>
+                                <h3 className={`text-xs font-bold uppercase tracking-wider ${t.sub} flex items-center gap-1.5 mb-3`}>
+                                    <Target className="w-3.5 h-3.5" /> Target Annual Return
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                        <input type="number" min="0" max="100" step="0.5" value={targetInput}
+                                            onChange={(e) => setTargetInput(e.target.value)} placeholder="e.g. 14.5"
+                                            className={`w-full pl-3 pr-7 py-2 rounded-lg border text-sm font-semibold ${t.input} focus:outline-none`} />
+                                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-sm ${t.muted}`}>%</span>
+                                    </div>
+                                    <button onClick={saveTarget} disabled={savingTarget}
+                                        className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-60">
+                                        {savingTarget ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
+                                {portfolio && portfolio.targetRate != null && (
+                                    <p className={`text-xs mt-2.5 ${portfolio.onTarget ? 'text-emerald-500' : 'text-rose-500'} font-medium`}>
+                                        Projected {portfolio.projectedAnnualRate}% vs target {portfolio.targetRate}% &middot;{' '}
+                                        {portfolio.onTarget ? 'ahead by ' : 'behind by '}
+                                        {Math.abs(portfolio.targetGap)}%
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Add note */}
+                            <div>
+                                <h3 className={`text-xs font-bold uppercase tracking-wider ${t.sub} mb-3`}>Add Note</h3>
+                                <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={3}
+                                    placeholder="Annotate this funder's portfolio..."
+                                    className={`w-full px-3 py-2 rounded-lg border text-sm ${t.input} focus:outline-none resize-none`} />
+                                <div className="flex items-center justify-between mt-2">
+                                    <button onClick={() => setNoteFlag(v => !v)}
+                                        className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${noteFlag ? 'text-rose-500 border-rose-500/40 bg-rose-500/10' : `${t.muted} ${t.divider}`}`}>
+                                        <Flag className="w-3.5 h-3.5" /> {noteFlag ? 'Flagged' : 'Flag'}
+                                    </button>
+                                    <button onClick={addNote} disabled={!noteText.trim()}
+                                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:scale-95 disabled:opacity-50">
+                                        <Plus className="w-3.5 h-3.5" /> Add
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Notes list */}
+                            <div>
+                                <h3 className={`text-xs font-bold uppercase tracking-wider ${t.sub} mb-3`}>Notes ({notes.length})</h3>
+                                <div className="space-y-2.5">
+                                    {notes.map(n => (
+                                        <div key={n.id} className={`${t.card} rounded-xl p-3 flex items-start gap-3`}>
+                                            {n.flagged && <Flag className="w-3.5 h-3.5 text-rose-500 mt-0.5 shrink-0" />}
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm ${t.h1} break-words`}>{n.note}</p>
+                                                <p className={`text-[11px] mt-1 ${t.muted}`}>{new Date(n.created_at).toLocaleString()}</p>
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button onClick={() => toggleFlag(n)} title="Toggle flag"
+                                                    className={`w-7 h-7 rounded-lg flex items-center justify-center ${n.flagged ? 'text-rose-500' : t.muted} hover:${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                                    <Flag className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={() => removeNote(n.id)} title="Delete"
+                                                    className={`w-7 h-7 rounded-lg flex items-center justify-center ${t.muted} hover:text-rose-500 hover:${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {notes.length === 0 && <p className={`text-sm ${t.muted} text-center py-6`}>No notes yet for this funder.</p>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
