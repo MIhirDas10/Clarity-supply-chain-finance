@@ -23,8 +23,11 @@ async function call(path, body) {
   return response.json();
 }
 
-// Starts a payment. UddoktaPay only returns a payment_url - the invoice id
-// used to verify it later is the last part of that url.
+// Starts a payment. UddoktaPay only returns a payment_url at this point -
+// note that the id in that url is NOT the id UddoktaPay later hands back on
+// redirect once the payment is actually completed (confirmed the hard way,
+// against the real sandbox - see walletRoutes.js for how the real id is
+// captured instead).
 async function createCharge({ fullName, email, amount, metadata, redirectUrl, cancelUrl, webhookUrl }) {
   const data = await call('/api/checkout-v2', {
     full_name: fullName,
@@ -41,10 +44,7 @@ async function createCharge({ fullName, email, amount, metadata, redirectUrl, ca
     throw new Error(data.message || 'UddoktaPay did not return a payment link');
   }
 
-  return {
-    paymentUrl: data.payment_url,
-    uddoktapayId: data.payment_url.split('/').pop(),
-  };
+  return { paymentUrl: data.payment_url };
 }
 
 // Confirms whether a charge was actually paid. Called after the funder is

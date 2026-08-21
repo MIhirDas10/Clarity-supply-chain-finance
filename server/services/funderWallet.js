@@ -33,8 +33,10 @@ async function getOrCreateWallet(client, funderId, funderName) {
 }
 
 // Credits a wallet - only ever called once a real UddoktaPay payment has
-// been verified as COMPLETED. Runs in its own transaction.
-async function creditWallet(funderId, funderName, amount, uddoktapayId) {
+// been verified as COMPLETED. Runs in its own transaction. ref is our own
+// client_ref, not UddoktaPay's own charge id (the two turned out not to be
+// the same value - see walletRoutes.js).
+async function creditWallet(funderId, funderName, amount, ref) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -48,8 +50,8 @@ async function creditWallet(funderId, funderName, amount, uddoktapayId) {
     await client.query(
       `UPDATE wallet_transactions
        SET status = 'Completed', balance_after = $2, completed_at = NOW()
-       WHERE uddoktapay_id = $1`,
-      [uddoktapayId, newBalance]
+       WHERE client_ref = $1`,
+      [ref, newBalance]
     );
 
     await client.query('COMMIT');

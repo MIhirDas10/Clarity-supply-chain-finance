@@ -485,6 +485,13 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_funder ON wallet_transactions(funder_id);
 
+-- The id UddoktaPay puts in a Create Charge response's payment_url turned
+-- out NOT to be the id it hands back on redirect after a real completed
+-- payment - the two are different values for the same charge. client_ref is
+-- our own id, generated before the redirect, so a deposit can always be
+-- found again regardless of what UddoktaPay calls it on its side.
+ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS client_ref TEXT UNIQUE;
+
 -- ===========================================================================
 -- Ameet's Module 3 - Repayment & Settlement Engine
 -- ===========================================================================
