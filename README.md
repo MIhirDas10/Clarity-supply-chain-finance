@@ -17,6 +17,7 @@ running system. It has **one base** with two folders:
 | **Mihir** | Invoice Status **Pipeline Tracker** | `client/src/mihir/` | `GET/PATCH /api/pipeline/invoices` (Supabase) |
 | **Apurba** | Invoice **Upload (OCR)**, **My Invoices**, **Payout History** + CSV | `client/src/apurba/` | `GET/POST /api/invoices`, `GET /api/payouts` (pg) |
 | **Digonto** | Real-Time **Discount Rate Calculator** | `client/src/digonto/` | `GET/POST /api/invoices` (pg) |
+| **Ameet** | **Cash Flow Forecast**, Buyer-Funded **Dynamic Discounting**, **Repayment Calendar**, and **Repayment & Settlement** | `client/src/ameet/` | `GET /api/cashflow/forecast`, `GET/POST/PATCH /api/dynamic-discounting`, `GET/POST /api/settlements`, `GET/POST /api/calendar` (pg + Google Calendar) |
 
 Each member's original source lives in its **own subfolder** and was kept intact.
 Only the "glue" that joins them (the sidebar/router, API base URLs, and a merged
@@ -35,6 +36,8 @@ database schema) was added.
                  │  server/  (one Express app, port 5000)       │
                  │   /api/invoices, /api/payouts   → pg         │
                  │   /api/pipeline/invoices        → Supabase   │
+                 │   /api/cashflow, /api/settlements → pg       │
+                 │   /api/calendar → Google Calendar + pg      │
                  └───────────────┬─────────────────────────────┘
                                  │
                  ┌───────────────▼─────────────────────────────┐
@@ -99,11 +102,12 @@ Clarity/
 │       ├── main.tsx        # entry + shared CSS (glue)
 │       ├── components/     # unified Sidebar + Header (glue)
 │       ├── digonto/        # Digonto's Discount Calculator (InvoiceForm + page)
+│       ├── ameet/          # Ameet's Forecast / Discounting / Settlement / Calendar
 │       ├── mihir/          # Mihir's Pipeline Tracker
 │       └── apurba/         # Apurba's Upload / My Invoices / Payout History
 ├── server/                 # one Express API
 │   ├── index.js            # entry: mounts every route (glue)
-│   ├── routes/             # invoiceRoutes (Apurba) + pipelineRoutes (Mihir)
+│   ├── routes/             # member feature routes (Apurba, Ameet, Digonto, Mihir)
 │   ├── controllers/        # Mihir's pipeline controller
 │   ├── config/ services/   # Mihir's Supabase client + SMS stub
 │   ├── db.js               # Apurba's pg pool
