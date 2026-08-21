@@ -85,7 +85,7 @@ npm run dev:server
 npm run dev:client
 ```
 - Client: http://localhost:5173
-- API: http://localhost:5000  ·  API docs: http://localhost:5000/api-docs
+- API: http://localhost:5001  ·  API docs: http://localhost:5001/api-docs
 
 ---
 
@@ -98,6 +98,7 @@ Clarity/
 │       ├── App.tsx         # router + layout (glue)
 │       ├── main.tsx        # entry + shared CSS (glue)
 │       ├── components/     # unified Sidebar + Header (glue)
+│       ├── ameet/          # Ameet's Cashflow, buyer fended dynamic discounting, settelment page and google calendar api inteegration 
 │       ├── digonto/        # Digonto's Discount Calculator (InvoiceForm + page)
 │       ├── mihir/          # Mihir's Pipeline Tracker
 │       └── apurba/         # Apurba's Upload / My Invoices / Payout History
