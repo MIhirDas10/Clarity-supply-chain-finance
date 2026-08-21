@@ -24,11 +24,11 @@ import InvoicesPage from "./digonto/pages/Invoices.jsx";       // Digonto - Disc
 import BuyerConfirmation from "./digonto/pages/BuyerConfirmation.jsx"; // Digonto - Buyer Confirmation (M2)
 import FunderMarketplace from "./digonto/pages/FunderMarketplace.jsx"; // Digonto - Funder Marketplace (M3)
 import DocumentVault from "./digonto/pages/DocumentVault.jsx"; // Digonto - Document Vault (M1)
-import CashFlowForecast from "./ameet/CashFlowForecast.jsx";   // Ameet   - Cash Flow Forecast Engine
-import DynamicDiscounting from "./ameet/DynamicDiscounting.jsx"; // Module 2 - Buyer-funded early payment
-import SupplierDynamicDiscountOffers from "./ameet/SupplierDynamicDiscountOffers.jsx";
-import RepaymentSettlement from "./ameet/RepaymentSettlement.jsx";
-import RepaymentCalendar from "./ameet/RepaymentCalendar.jsx";
+import CashFlowForecast from "./ameet/CashFlowForecast.jsx";   // Ameet - Module 1 - Cash Flow Forecast Engine
+import DynamicDiscounting from "./ameet/DynamicDiscounting.jsx"; // Ameet -  Module 2 - Buyer-funded early payment
+import SupplierDynamicDiscountOffers from "./ameet/SupplierDynamicDiscountOffers.jsx"; // Ameet - Module 2 - Supplier view of buyer-funded early payment offers
+import RepaymentSettlement from "./ameet/RepaymentSettlement.jsx"; // Ameet - Module 3 - Repayment Settlement
+import RepaymentCalendar from "./ameet/RepaymentCalendar.jsx"; // Ameet - Module 4 - Repayment Calendar with Google Calendar integration
 import SupplierHealth from "./mihir/pages/SupplierHealth.jsx";           // Mihir - Supplier Health Analytics
 import Notifications from "./mihir/pages/Notifications.jsx";             // Mihir - Notification Center
 import Portfolio from "./mihir/pages/Portfolio.jsx";                     // Mihir - Investor Portfolio
