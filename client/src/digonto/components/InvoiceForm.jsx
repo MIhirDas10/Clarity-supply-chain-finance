@@ -54,6 +54,7 @@ export default function InvoiceForm({ onSuccess }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          invoice_amount: form.amount,
           discount_days: discountDays,
           discounted_amount: discountedAmount,
         }),
