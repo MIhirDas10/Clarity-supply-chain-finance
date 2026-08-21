@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar.jsx";
 import BuyerSidebar from "./components/BuyerSidebar.jsx";
 import FunderSidebar from "./components/FunderSidebar.jsx";
 import Header from "./components/Header.jsx";
+import Landing from "./Landing.jsx";
 
 import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
@@ -138,10 +139,11 @@ function App() {
       <Router>
         <Routes>
           {/* Public - no login required */}
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
 
-          <Route path="/" element={<RoleHome />} />
+          <Route path="/home" element={<RoleHome />} />
 
           {/* Admin */}
           <Route

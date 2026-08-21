@@ -73,6 +73,8 @@ export const getPortfolioNotes = (params = {}) => {
 export const createPortfolioNote = (note) => request('/api/portfolio/notes', jsonBody('POST', note));
 export const updatePortfolioNote = (id, patch) => request('/api/portfolio/notes/' + id, jsonBody('PATCH', patch));
 export const deletePortfolioNote = (id) => request('/api/portfolio/notes/' + id, { method: 'DELETE' });
+// Return Calculator / Deployment Planner (compute from funder inputs)
+export const runReturnCalculator = (inputs) => request('/api/portfolio/return-calculator', jsonBody('POST', inputs));
 
 // ---------------------------------------------------------------------------
 // Feature 4 - Buyer Credit Scoring Engine
@@ -93,3 +95,15 @@ export const deleteCreditNote = (name, id) =>
     request('/api/credit/buyers/' + encodeURIComponent(name) + '/notes/' + id, { method: 'DELETE' });
 export const overrideCreditScore = (name, score, reason) =>
     request('/api/credit/buyers/' + encodeURIComponent(name) + '/override', jsonBody('PATCH', { score, reason }));
+
+// Credit Limit & Exposure Engine
+export const getCreditExposure = (name) =>
+    request('/api/credit/buyers/' + encodeURIComponent(name) + '/exposure');
+export const setCreditLimit = (name, creditLimit) =>
+    request('/api/credit/buyers/' + encodeURIComponent(name) + '/limit', jsonBody('PATCH', { creditLimit }));
+
+// Risk-Based Pricing Engine (score -> discount rate)
+export const getCreditPricing = (name, amount, tenor) =>
+    request('/api/credit/buyers/' + encodeURIComponent(name) + '/pricing?amount=' + amount + '&tenor=' + tenor);
+export const getPricingPolicy = () => request('/api/credit/pricing-policy');
+export const updatePricingPolicy = (policy) => request('/api/credit/pricing-policy', jsonBody('PATCH', policy));

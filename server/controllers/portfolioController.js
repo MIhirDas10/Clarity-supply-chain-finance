@@ -1,4 +1,7 @@
 const pool = require('../db');
+// Feature 3 <- Feature 4 integration: the buyer credit model supplies each
+// buyer's default probability, which turns raw returns into risk-adjusted ones.
+const credit = require('./creditController');
 
 // The platform facilitation fee taken from each funded invoice (FR: 0.5%-1%).
 const PLATFORM_FEE_RATE = 0.01;
@@ -72,6 +75,11 @@ async function computePortfolios(funderId) {
     const today = new Date();
     const byFunder = {};
 
+    // Credit-risk inputs (Feature 4): every buyer's score + the pricing policy,
+    // used to compute a probability of default and expected loss per investment.
+    const scoreMap = await credit.allBuyerScores();
+    const policy = await credit.loadPricingPolicy();
+
     records.forEach(rec => {
         const fid = rec.funderId;
         if (!byFunder[fid]) {
@@ -80,7 +88,8 @@ async function computePortfolios(funderId) {
                 active: [], matured: [], overdue: [], completed: [],
                 deployedCapital: 0, projectedReturn: 0, realizedReturn: 0,
                 totalInvested: 0, completedPrincipal: 0,
-                rateWeightedSum: 0, rateWeight: 0
+                rateWeightedSum: 0, rateWeight: 0,
+                expectedLoss: 0, buyerExposure: {}
             };
         }
         const f = byFunder[fid];
@@ -98,6 +107,12 @@ async function computePortfolios(funderId) {
         const annualRate = rec.principal > 0
             ? (netReturn / rec.principal) * (365 / holdingDays) * 100 : 0;
 
+        // Default risk from the buyer's credit score (unknown buyer -> neutral 50).
+        const buyerScore = scoreMap[rec.buyerName] != null ? scoreMap[rec.buyerName] : 50;
+        const pdAnnual = credit.pdFromScore(buyerScore, policy);
+        const pdHold = pdAnnual * (holdingDays / 365);
+        const expectedLoss = rec.principal * pdHold * policy.lgd;
+
         const item = {
             invoiceId: rec.invoiceId,
             buyerName: rec.buyerName,
@@ -106,6 +121,10 @@ async function computePortfolios(funderId) {
             expectedReturn: Math.round(netReturn),
             platformFee: Math.round(platformFee),
             annualRate: annualRate.toFixed(1),
+            buyerScore: buyerScore,
+            pd: Number((pdAnnual * 100).toFixed(1)),
+            expectedLoss: Math.round(expectedLoss),
+            riskAdjustedReturn: Math.round(netReturn - expectedLoss),
             dueDate: rec.dueDate,
             status: rec.status
         };
@@ -138,6 +157,9 @@ async function computePortfolios(funderId) {
             f.projectedReturn += netReturn;
             f.rateWeightedSum += annualRate * rec.principal;
             f.rateWeight += rec.principal;
+            // Risk accumulation on capital still at risk.
+            f.expectedLoss += expectedLoss;
+            f.buyerExposure[rec.buyerName] = (f.buyerExposure[rec.buyerName] || 0) + rec.principal;
         }
     });
 
@@ -148,6 +170,24 @@ async function computePortfolios(funderId) {
         // Maturity schedule = all capital still out, soonest first.
         const maturitySchedule = f.active.concat(f.matured).concat(f.overdue)
             .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+        // ---- Risk-adjusted analytics (Feature 3 <- Feature 4) --------------
+        const riskAdjustedReturn = f.projectedReturn - f.expectedLoss;
+        const riskAdjustedAnnualRate = f.projectedReturn > 0
+            ? projectedAnnualRate * (riskAdjustedReturn / f.projectedReturn) : 0;
+        const expectedLossRate = f.deployedCapital > 0 ? (f.expectedLoss / f.deployedCapital) * 100 : 0;
+
+        // Concentration: how the deployed capital is spread across buyers.
+        const buyers = Object.keys(f.buyerExposure).map(name => ({
+            name,
+            exposure: Math.round(f.buyerExposure[name]),
+            pct: f.deployedCapital > 0 ? Number(((f.buyerExposure[name] / f.deployedCapital) * 100).toFixed(1)) : 0
+        })).sort((a, b) => b.exposure - a.exposure);
+        // Herfindahl-Hirschman Index (0-10000): sum of squared percentage shares.
+        const hhi = Math.round(buyers.reduce((s, b) => s + Math.pow(b.pct, 2), 0));
+        let concentrationStatus = 'Diversified';
+        if (hhi > 2500) concentrationStatus = 'Concentrated';
+        else if (hhi >= 1500) concentrationStatus = 'Moderate';
 
         return {
             funderId: f.funderId,
@@ -167,7 +207,20 @@ async function computePortfolios(funderId) {
             matured: f.matured,
             overdue: f.overdue,
             completed: f.completed,
-            maturitySchedule: maturitySchedule
+            maturitySchedule: maturitySchedule,
+            risk: {
+                expectedLoss: Math.round(f.expectedLoss),
+                expectedLossRate: Number(expectedLossRate.toFixed(2)),
+                riskAdjustedReturn: Math.round(riskAdjustedReturn),
+                riskAdjustedAnnualRate: Number(riskAdjustedAnnualRate.toFixed(1)),
+                concentration: {
+                    hhi: hhi,
+                    status: concentrationStatus,
+                    topBuyerName: buyers.length ? buyers[0].name : null,
+                    topBuyerPct: buyers.length ? buyers[0].pct : 0,
+                    buyers: buyers.slice(0, 6)
+                }
+            }
         };
     });
 }
@@ -237,13 +290,16 @@ exports.getSummary = async (req, res) => {
         const portfolios = await computePortfolios();
         let deployed = 0, projected = 0, realized = 0;
         let active = 0, matured = 0, overdue = 0, completed = 0;
+        let expectedLoss = 0, riskAdjusted = 0;
         portfolios.forEach(p => {
             deployed += p.deployedCapital; projected += p.projectedReturn; realized += p.realizedReturn;
             active += p.activeCount; matured += p.maturedCount; overdue += p.overdueCount; completed += p.completedCount;
+            expectedLoss += p.risk.expectedLoss; riskAdjusted += p.risk.riskAdjustedReturn;
         });
         res.status(200).json({
             funders: portfolios.length,
             deployedCapital: deployed, projectedReturn: projected, realizedReturn: realized,
+            expectedLoss: expectedLoss, riskAdjustedReturn: riskAdjusted,
             activeCount: active, maturedCount: matured, overdueCount: overdue, completedCount: completed
         });
     } catch (error) {
@@ -361,5 +417,93 @@ exports.setTarget = async (req, res) => {
     } catch (error) {
         console.error('Portfolio Set Target Error:', error);
         res.status(500).json({ error: 'Failed to set target' });
+    }
+};
+
+// ===========================================================================
+// Return Calculator / Deployment Planner (add-on).
+//
+// This is NOT a read of stored data - it takes the funder's own inputs (how
+// much capital, over how many months) and RUNS a projection against the live
+// marketplace: the capital-weighted average annualised rate and average ticket
+// size are computed from real invoice-derived records, then used to project the
+// return, monthly income, and how many invoices the capital could fund.
+// ===========================================================================
+
+// Current marketplace benchmarks, computed from every funded record.
+async function marketplaceBenchmarks() {
+    const records = await loadFunderRecords();
+    let rateWeightedSum = 0, rateWeight = 0, principalSum = 0, count = 0;
+
+    records.forEach(rec => {
+        if (!(rec.principal > 0)) return;
+        const grossReturn = rec.faceValue - rec.principal;
+        const platformFee = rec.faceValue * rec.feeRate;
+        let netReturn = grossReturn - platformFee;
+        if (netReturn < 0) netReturn = grossReturn;
+
+        let holdingDays = 90;
+        if (rec.fundedDate && rec.dueDate) {
+            const d = daysBetween(rec.dueDate, rec.fundedDate);
+            if (d > 0) holdingDays = d;
+        }
+        const annualRate = (netReturn / rec.principal) * (365 / holdingDays) * 100;
+
+        rateWeightedSum += annualRate * rec.principal;
+        rateWeight += rec.principal;
+        principalSum += rec.principal;
+        count += 1;
+    });
+
+    return {
+        marketplaceRate: rateWeight > 0 ? rateWeightedSum / rateWeight : 0,
+        avgTicket: count > 0 ? principalSum / count : 0,
+        sampleSize: count
+    };
+}
+
+// POST /api/portfolio/return-calculator
+// body: { capital, months, targetRate? }
+exports.returnCalculator = async (req, res) => {
+    try {
+        const capital = Number(req.body.capital);
+        const months = Number(req.body.months);
+        if (!isFinite(capital) || capital <= 0) {
+            return res.status(400).json({ error: 'capital must be a positive number' });
+        }
+        if (!isFinite(months) || months <= 0 || months > 60) {
+            return res.status(400).json({ error: 'months must be between 1 and 60' });
+        }
+
+        const { marketplaceRate, avgTicket, sampleSize } = await marketplaceBenchmarks();
+
+        const projectedReturn = capital * (marketplaceRate / 100) * (months / 12);
+        const projectedTotal = capital + projectedReturn;
+        const monthlyIncome = projectedReturn / months;
+        const estInvoices = avgTicket > 0 ? Math.floor(capital / avgTicket) : 0;
+
+        const targetRate = req.body.targetRate !== undefined ? Number(req.body.targetRate) : null;
+        let meetsTarget = null, targetGap = null;
+        if (targetRate !== null && isFinite(targetRate)) {
+            meetsTarget = marketplaceRate >= targetRate;
+            targetGap = Number((marketplaceRate - targetRate).toFixed(1));
+        }
+
+        res.status(200).json({
+            inputs: { capital: Math.round(capital), months },
+            marketplaceRate: Number(marketplaceRate.toFixed(1)),
+            avgTicket: Math.round(avgTicket),
+            sampleSize,
+            projectedReturn: Math.round(projectedReturn),
+            projectedTotal: Math.round(projectedTotal),
+            monthlyIncome: Math.round(monthlyIncome),
+            estInvoices,
+            effectiveAnnualReturnPct: capital > 0 ? Number(((projectedReturn / capital) * (12 / months) * 100).toFixed(1)) : 0,
+            meetsTarget,
+            targetGap
+        });
+    } catch (error) {
+        console.error('Return Calculator Error:', error);
+        res.status(500).json({ error: 'Failed to run return calculation' });
     }
 };

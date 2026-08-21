@@ -51,6 +51,110 @@ function ratingFor(score) {
     return 'Poor';
 }
 
+// Rank used to detect a downgrade (a move to a worse band) on recompute.
+function ratingRank(rating) {
+    return { Poor: 0, Fair: 1, Good: 2, Excellent: 3 }[rating] ?? 0;
+}
+
+// The most any single buyer can be extended, at a perfect score. The score
+// scales the recommended limit down from here, so credit availability is a
+// direct, explainable function of the score.
+const MAX_CREDIT_LIMIT = 10000000; // ৳1 crore
+
+function recommendedLimitFor(score) {
+    return Math.round((score / 100) * MAX_CREDIT_LIMIT);
+}
+
+// ===========================================================================
+// Credit-risk pricing model (shared service).
+//
+// This is the point of the whole feature: the score is turned into a PRICE.
+//   score  -> probability of default (PD)   (calibrated curve)
+//   PD     -> risk premium                   (PD x loss-given-default)
+//   price  = cost of capital + risk premium + platform margin, annualised,
+//            then pro-rated to the invoice tenor -> the discount rate the
+//            supplier is quoted for that buyer's invoice.
+//
+// The parameters live in pricing_policy (id = 1) so the model is tunable, and
+// the same helpers are consumed by the portfolio's expected-loss analytics.
+// ===========================================================================
+const DEFAULT_PRICING = {
+    baseRate: 8.0,        // annual cost of capital + ops, %
+    platformMargin: 2.0,  // annual platform margin, %
+    lgd: 0.40,            // loss given default (fraction of exposure lost)
+    pdFloor: 0.01,        // best-case annual PD (score 100)
+    pdCeiling: 0.25       // worst-case annual PD (score 0)
+};
+
+async function loadPricingPolicy() {
+    try {
+        const r = await pool.query(
+            'SELECT base_rate, platform_margin, lgd, pd_floor, pd_ceiling FROM pricing_policy WHERE id = 1'
+        );
+        if (r.rows.length === 0) return { ...DEFAULT_PRICING };
+        const row = r.rows[0];
+        return {
+            baseRate: Number(row.base_rate),
+            platformMargin: Number(row.platform_margin),
+            lgd: Number(row.lgd),
+            pdFloor: Number(row.pd_floor),
+            pdCeiling: Number(row.pd_ceiling)
+        };
+    } catch (error) {
+        console.error('Could not read pricing_policy, using defaults:', error.message);
+        return { ...DEFAULT_PRICING };
+    }
+}
+
+// Annual probability of default from the credit score. Higher score -> lower PD,
+// linearly interpolated between the policy floor and ceiling.
+function pdFromScore(score, policy) {
+    const s = Math.max(0, Math.min(100, score));
+    return policy.pdCeiling - (s / 100) * (policy.pdCeiling - policy.pdFloor);
+}
+
+// Full price breakdown for one buyer + invoice (amount, tenor in days).
+function priceInvoice(score, amount, tenorDays, policy) {
+    const pdAnnual = pdFromScore(score, policy);
+    const riskPremium = pdAnnual * policy.lgd * 100;            // annual %, from expected loss
+    const annualRate = policy.baseRate + policy.platformMargin + riskPremium;
+    const discountRate = annualRate * (tenorDays / 365);        // pro-rated to tenor, %
+    const discountAmount = amount * (discountRate / 100);
+    const supplierPayout = amount - discountAmount;
+    const pdTenor = pdAnnual * (tenorDays / 365);
+    const expectedLoss = amount * pdTenor * policy.lgd;
+
+    return {
+        pdAnnual: Number((pdAnnual * 100).toFixed(2)),          // as %
+        lgd: policy.lgd,
+        baseRate: policy.baseRate,
+        platformMargin: policy.platformMargin,
+        riskPremium: Number(riskPremium.toFixed(2)),
+        annualRate: Number(annualRate.toFixed(2)),
+        tenorDays,
+        discountRate: Number(discountRate.toFixed(2)),
+        discountAmount: Math.round(discountAmount),
+        supplierPayout: Math.round(supplierPayout),
+        expectedLoss: Math.round(expectedLoss)
+    };
+}
+
+// Every buyer's current score (overrides applied) as a { name: score } map.
+// Exported so the portfolio's risk analytics can price default risk per buyer
+// without re-implementing the scoring.
+async function allBuyerScores() {
+    const scores = await computeScores();
+    const overrides = await loadOverrides();
+    const map = {};
+    scores.forEach(s => { map[s.buyerName] = applyOverride(s, overrides).score; });
+    return map;
+}
+
+// Exposed for the portfolio controller (Feature 3 <- Feature 4 integration).
+exports.loadPricingPolicy = loadPricingPolicy;
+exports.pdFromScore = pdFromScore;
+exports.allBuyerScores = allBuyerScores;
+
 // Core calculation. Reads every buyer's invoice activity and turns it into a
 // credit score with a transparent component breakdown and reasons.
 // If buyerName is given, only that buyer is scored.
@@ -222,13 +326,15 @@ async function runRecalculation() {
         const entry = scores[i];
 
         const prev = await pool.query(
-            'SELECT score, manual_override FROM buyer_credit_score WHERE buyer_name = $1',
+            'SELECT score, rating, manual_override FROM buyer_credit_score WHERE buyer_name = $1',
             [entry.buyerName]
         );
         let oldScore = null;
+        let oldRating = null;
         let isOverridden = false;
         if (prev.rows.length > 0) {
             oldScore = prev.rows[0].score;
+            oldRating = prev.rows[0].rating;
             isOverridden = prev.rows[0].manual_override === true;
         }
 
@@ -236,6 +342,25 @@ async function runRecalculation() {
         // not silently replace it, so leave the row (and its history) untouched.
         if (isOverridden) {
             continue;
+        }
+
+        // Event-driven alert: if the buyer slipped into a worse band, publish a
+        // credit-downgrade notification to the Notification Center (bell + email
+        // are handled there). This is the marketplace-confidence signal.
+        if (oldRating && ratingRank(entry.rating) < ratingRank(oldRating)) {
+            try {
+                await pool.query(`
+                    INSERT INTO notifications (recipient, message, invoice_link, type)
+                    VALUES ($1, $2, $3, $4)
+                `, [
+                    process.env.RISK_EMAIL || 'risk@clarityb2b.com',
+                    `Buyer ${entry.buyerName} credit downgraded from ${oldRating} to ${entry.rating} (score ${oldScore} → ${entry.score}).`,
+                    '/credit',
+                    'credit-downgrade'
+                ]);
+            } catch (e) {
+                console.error('Could not publish downgrade alert:', e.message);
+            }
         }
 
         // Save the latest score/rating (never clobber a manual override).
@@ -560,5 +685,199 @@ exports.override = async (req, res) => {
     } catch (error) {
         console.error('Credit Override Error:', error);
         res.status(500).json({ error: 'Failed to override score' });
+    }
+};
+
+// ===========================================================================
+// Credit Limit & Exposure Engine (add-on).
+//
+// The score is turned into a real risk control: a credit limit (recommended
+// from the score, or set by an analyst) is checked against the buyer's LIVE
+// outstanding exposure - the total of funded invoices not yet repaid. The
+// engine computes utilisation and an OK / Near-limit / Over-limit status that
+// pricing and funding decisions can enforce. This is computed on every call
+// from real invoice rows, not stored and served back.
+// ===========================================================================
+
+// Sum of funded-but-unpaid invoice amounts for one buyer = capital at risk.
+async function computeExposure(buyerName) {
+    const r = await pool.query(`
+        SELECT id, invoice_number, invoice_amount, due_date
+        FROM invoices
+        WHERE buyer_name = $1 AND funder_id IS NOT NULL AND payment_date IS NULL
+    `, [buyerName]);
+    let outstanding = 0;
+    const invoices = r.rows.map(row => {
+        const amt = Number(row.invoice_amount) || 0;
+        outstanding += amt;
+        return { invoiceId: row.id, invoiceNumber: row.invoice_number, amount: Math.round(amt), dueDate: row.due_date };
+    });
+    return { outstanding, invoices };
+}
+
+// GET /api/credit/buyers/:name/exposure
+exports.getExposure = async (req, res) => {
+    try {
+        const name = req.params.name;
+
+        // Live score for the recommendation.
+        const scores = await computeScores(name);
+        if (scores.length === 0) return res.status(404).json({ error: 'Buyer not found' });
+        const overrides = await loadOverrides(name);
+        const score = applyOverride(scores[0], overrides).score;
+
+        const recommendedLimit = recommendedLimitFor(score);
+
+        // Analyst-set limit, if any; otherwise use the score-derived recommendation.
+        let creditLimit = recommendedLimit;
+        let isCustomLimit = false;
+        let setBy = null;
+        try {
+            const lr = await pool.query('SELECT credit_limit, set_by FROM credit_limits WHERE buyer_name = $1', [name]);
+            if (lr.rows.length > 0) {
+                creditLimit = Number(lr.rows[0].credit_limit);
+                isCustomLimit = true;
+                setBy = lr.rows[0].set_by;
+            }
+        } catch (e) {
+            console.error('Could not read credit_limits:', e.message);
+        }
+
+        const { outstanding, invoices } = await computeExposure(name);
+        const utilization = creditLimit > 0 ? Math.round((outstanding / creditLimit) * 100) : 0;
+        const headroom = Math.round(creditLimit - outstanding);
+        let status = 'OK';
+        if (outstanding > creditLimit) status = 'Over Limit';
+        else if (utilization >= 80) status = 'Near Limit';
+
+        res.status(200).json({
+            buyerName: name,
+            score,
+            creditLimit: Math.round(creditLimit),
+            recommendedLimit,
+            isCustomLimit,
+            setBy,
+            exposure: Math.round(outstanding),
+            utilization,
+            headroom,
+            status,
+            outstandingCount: invoices.length,
+            outstandingInvoices: invoices
+        });
+    } catch (error) {
+        console.error('Credit Exposure Error:', error);
+        res.status(500).json({ error: 'Failed to compute exposure' });
+    }
+};
+
+// PATCH /api/credit/buyers/:name/limit
+// body: { creditLimit }  - set a custom limit; send null to revert to the
+// score-recommended limit.
+exports.setLimit = async (req, res) => {
+    try {
+        const name = req.params.name;
+        const { creditLimit } = req.body;
+
+        if (creditLimit === null || creditLimit === undefined || creditLimit === '') {
+            await pool.query('DELETE FROM credit_limits WHERE buyer_name = $1', [name]);
+            return res.status(200).json({ message: 'Reverted to recommended limit', buyerName: name });
+        }
+
+        const limit = Number(creditLimit);
+        if (!isFinite(limit) || limit < 0) {
+            return res.status(400).json({ error: 'creditLimit must be a non-negative number (or null to reset)' });
+        }
+
+        const result = await pool.query(`
+            INSERT INTO credit_limits (buyer_name, credit_limit, set_by, updated_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (buyer_name)
+            DO UPDATE SET credit_limit = $2, set_by = $3, updated_at = NOW()
+            RETURNING *
+        `, [name, Math.round(limit), 'Analyst']);
+
+        res.status(200).json({ message: 'Credit limit updated', limit: result.rows[0] });
+    } catch (error) {
+        console.error('Credit Set Limit Error:', error);
+        res.status(500).json({ error: 'Failed to set credit limit' });
+    }
+};
+
+// GET /api/credit/pricing-policy - the tunable model parameters.
+exports.getPricingPolicy = async (req, res) => {
+    try {
+        const policy = await loadPricingPolicy();
+        res.status(200).json({ policy, defaults: DEFAULT_PRICING });
+    } catch (error) {
+        console.error('Pricing Policy Read Error:', error);
+        res.status(500).json({ error: 'Failed to load pricing policy' });
+    }
+};
+
+// PATCH /api/credit/pricing-policy
+// body: any subset of { baseRate, platformMargin, lgd, pdFloor, pdCeiling }
+exports.updatePricingPolicy = async (req, res) => {
+    try {
+        const cur = await loadPricingPolicy();
+        const p = {
+            baseRate: req.body.baseRate !== undefined ? Number(req.body.baseRate) : cur.baseRate,
+            platformMargin: req.body.platformMargin !== undefined ? Number(req.body.platformMargin) : cur.platformMargin,
+            lgd: req.body.lgd !== undefined ? Number(req.body.lgd) : cur.lgd,
+            pdFloor: req.body.pdFloor !== undefined ? Number(req.body.pdFloor) : cur.pdFloor,
+            pdCeiling: req.body.pdCeiling !== undefined ? Number(req.body.pdCeiling) : cur.pdCeiling
+        };
+        if ([p.baseRate, p.platformMargin].some(v => !isFinite(v) || v < 0)) {
+            return res.status(400).json({ error: 'Rates must be non-negative numbers' });
+        }
+        if (!isFinite(p.lgd) || p.lgd < 0 || p.lgd > 1) {
+            return res.status(400).json({ error: 'lgd must be between 0 and 1' });
+        }
+        if (![p.pdFloor, p.pdCeiling].every(v => isFinite(v) && v >= 0 && v <= 1) || p.pdFloor > p.pdCeiling) {
+            return res.status(400).json({ error: 'pdFloor/pdCeiling must be 0-1 with floor <= ceiling' });
+        }
+        await pool.query(`
+            INSERT INTO pricing_policy (id, base_rate, platform_margin, lgd, pd_floor, pd_ceiling, updated_at)
+            VALUES (1, $1, $2, $3, $4, $5, NOW())
+            ON CONFLICT (id)
+            DO UPDATE SET base_rate = $1, platform_margin = $2, lgd = $3, pd_floor = $4, pd_ceiling = $5, updated_at = NOW()
+        `, [p.baseRate, p.platformMargin, p.lgd, p.pdFloor, p.pdCeiling]);
+        res.status(200).json({ message: 'Pricing policy updated', policy: p });
+    } catch (error) {
+        console.error('Pricing Policy Update Error:', error);
+        res.status(500).json({ error: 'Failed to update pricing policy' });
+    }
+};
+
+// GET /api/credit/buyers/:name/pricing?amount=&tenor=
+// The risk-based discount rate for an invoice from this buyer. This is the
+// shared read the discount calculator and risk rating engine consume.
+exports.getPricing = async (req, res) => {
+    try {
+        const name = req.params.name;
+        const amount = Number(req.query.amount) || 100000;
+        const tenor = Number(req.query.tenor) || 60;
+        if (amount <= 0 || tenor <= 0 || tenor > 365) {
+            return res.status(400).json({ error: 'amount must be > 0 and tenor between 1 and 365 days' });
+        }
+
+        const scores = await computeScores(name);
+        if (scores.length === 0) return res.status(404).json({ error: 'Buyer not found' });
+        const overrides = await loadOverrides(name);
+        const scored = applyOverride(scores[0], overrides);
+
+        const policy = await loadPricingPolicy();
+        const pricing = priceInvoice(scored.score, amount, tenor, policy);
+
+        res.status(200).json({
+            buyerName: name,
+            score: scored.score,
+            rating: scored.rating,
+            overridden: scored.overridden === true,
+            invoiceAmount: Math.round(amount),
+            ...pricing
+        });
+    } catch (error) {
+        console.error('Credit Pricing Error:', error);
+        res.status(500).json({ error: 'Failed to price invoice' });
     }
 };

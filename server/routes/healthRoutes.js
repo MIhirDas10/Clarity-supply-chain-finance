@@ -14,6 +14,9 @@ router.post("/recalculate", healthController.recalculate);
 // distress alerts
 router.get("/alerts", healthController.getAlerts);
 
+// acknowledge (mark read) one distress alert
+router.patch("/alerts/:id/acknowledge", healthController.acknowledgeAlert);
+
 // scoring configuration (band thresholds)
 router.get("/config", healthController.getConfig);
 router.patch("/config", healthController.updateConfig);

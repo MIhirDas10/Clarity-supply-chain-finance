@@ -5,6 +5,9 @@ const portfolioController = require('../controllers/portfolioController');
 // Platform-wide totals across all funders
 router.get('/summary', portfolioController.getSummary);
 
+// Return Calculator / Deployment Planner - projects returns from funder inputs
+router.post('/return-calculator', portfolioController.returnCalculator);
+
 // Investment notes - a funder annotates/flags investments (GET + POST + PATCH + DELETE)
 router.get('/notes', portfolioController.getNotes);
 router.post('/notes', portfolioController.createNote);

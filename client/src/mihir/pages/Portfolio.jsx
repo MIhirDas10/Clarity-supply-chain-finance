@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
     Wallet, TrendingUp, CheckCircle2, Layers, Landmark,
     Calendar, AlertTriangle, ChevronRight, Sun, Moon, Activity, ArrowUpRight,
-    StickyNote, Target, Plus, Trash2, Flag, X
+    StickyNote, Target, Plus, Trash2, Flag, X, Calculator
 } from 'lucide-react';
 import {
     getFunderPortfolio, setFunderTarget,
-    getPortfolioNotes, createPortfolioNote, updatePortfolioNote, deletePortfolioNote
+    getPortfolioNotes, createPortfolioNote, updatePortfolioNote, deletePortfolioNote,
+    runReturnCalculator
 } from '../services/api';
 
 export default function Portfolio() {
@@ -25,6 +26,26 @@ export default function Portfolio() {
     const [noteFlag, setNoteFlag] = useState(false);
     const [targetInput, setTargetInput] = useState('');
     const [savingTarget, setSavingTarget] = useState(false);
+
+    // Return Calculator / Deployment Planner.
+    const [plannerOpen, setPlannerOpen] = useState(false);
+    const [planCapital, setPlanCapital] = useState('1000000');
+    const [planMonths, setPlanMonths] = useState('3');
+    const [planResult, setPlanResult] = useState(null);
+    const [planning, setPlanning] = useState(false);
+
+    async function runPlan() {
+        const capital = Number(planCapital);
+        const months = Number(planMonths);
+        if (!isFinite(capital) || capital <= 0 || !isFinite(months) || months <= 0) return;
+        setPlanning(true);
+        try {
+            const targetRate = portfolio && portfolio.targetRate != null ? portfolio.targetRate : undefined;
+            const res = await runReturnCalculator({ capital, months, targetRate });
+            setPlanResult(res);
+        } catch (e) { console.error(e); }
+        setPlanning(false);
+    }
 
     // Reload the notes list for the selected funder.
     function reloadNotes(fid) {
@@ -165,6 +186,12 @@ export default function Portfolio() {
                         <p className={`mt-1 text-sm ${t.sub}`}>Deployed capital, expected and realized returns, and maturity schedule &mdash; from real transaction events.</p>
                     </div>
                     <div className="flex items-center gap-2.5">
+                        <button onClick={() => setPlannerOpen(true)} className={`group h-10 pl-2 pr-3.5 rounded-xl border flex items-center gap-2 shadow-sm transition-all active:scale-95 hover:border-emerald-500/50 ${t.toggle}`} title="Return calculator">
+                            <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-500 transition-colors group-hover:bg-emerald-500/20">
+                                <Calculator className="w-3.5 h-3.5" />
+                            </span>
+                            <span className={`text-sm font-semibold whitespace-nowrap ${t.h1}`}>Planner</span>
+                        </button>
                         <button onClick={() => setPanelOpen(true)} className={`group h-10 pl-2 pr-3.5 rounded-xl border flex items-center gap-2 shadow-sm transition-all active:scale-95 hover:border-emerald-500/50 ${t.toggle}`} title="Notes & return target">
                             <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-500 transition-colors group-hover:bg-emerald-500/20">
                                 <StickyNote className="w-3.5 h-3.5" />
@@ -194,6 +221,25 @@ export default function Portfolio() {
                     <Kpi dark={dark} icon={<CheckCircle2 className="w-4 h-4" />} label="Realized Return" value={money(p.realizedReturn)} badge={`${p.realizedAnnualRate || 0}% annual`} sub={`${p.completedCount || 0} completed`} />
                     <Kpi dark={dark} icon={<Layers className="w-4 h-4" />} label="Total Invested" value={money(p.totalInvested)} badge={`${p.totalInvestments || 0} deals`} sub="lifetime capital" />
                 </div>
+
+                {/* Risk-adjusted strip: expected loss + risk-adjusted return + concentration (from buyer credit scores) */}
+                {p.risk && (
+                    <div className={`${t.card} rounded-xl shadow-sm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6`}>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500"><AlertTriangle className="w-3.5 h-3.5" /></span>
+                            <span className={`text-[11px] font-bold uppercase tracking-wider ${t.sub}`}>Risk-Adjusted</span>
+                        </div>
+                        <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <RiskStat t={t} label="Expected Loss" value={money(p.risk.expectedLoss)} sub={`${p.risk.expectedLossRate}% of capital`} tone="rose" />
+                            <RiskStat t={t} label="Risk-Adj. Return" value={money(p.risk.riskAdjustedReturn)} sub={`vs ${money(p.projectedReturn)} raw`} tone="emerald" />
+                            <RiskStat t={t} label="Risk-Adj. Rate" value={`${p.risk.riskAdjustedAnnualRate}%`} sub={`vs ${p.projectedAnnualRate}% raw`} tone="emerald" />
+                            <RiskStat t={t} label="Concentration"
+                                value={p.risk.concentration.status}
+                                sub={`HHI ${p.risk.concentration.hhi} · top ${p.risk.concentration.topBuyerPct}%`}
+                                tone={p.risk.concentration.status === 'Concentrated' ? 'rose' : p.risk.concentration.status === 'Moderate' ? 'amber' : 'emerald'} />
+                        </div>
+                    </div>
+                )}
 
                 {/* Middle and Bottom: Table (Left) + Donut & Returns (Right) */}
                 <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -275,6 +321,58 @@ export default function Portfolio() {
                     </div>
                 </div>
             </div>
+
+            {/* Return Calculator / Deployment Planner modal */}
+            {plannerOpen && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPlannerOpen(false)}></div>
+                    <div className={`relative w-full max-w-lg rounded-2xl shadow-2xl ${dark ? 'bg-[#0f1412] border border-white/10' : 'bg-white'} p-6`}>
+                        <div className="flex items-center justify-between mb-1">
+                            <h2 className={`text-lg font-bold ${t.h1} flex items-center gap-2`}>
+                                <Calculator className="w-4 h-4 text-emerald-500" /> Return Planner
+                            </h2>
+                            <button onClick={() => setPlannerOpen(false)} className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.muted} hover:${dark ? 'bg-white/5' : 'bg-slate-100'}`}><X className="w-4 h-4" /></button>
+                        </div>
+                        <p className={`text-xs ${t.muted} mb-5`}>Projects your return against the live marketplace rate &mdash; not stored data.</p>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={`text-[11px] font-bold uppercase tracking-wider ${t.sub}`}>Capital (৳)</label>
+                                <input type="number" min="0" step="10000" value={planCapital} onChange={e => setPlanCapital(e.target.value)}
+                                    className={`w-full mt-1 px-3 py-2 rounded-lg border text-sm font-semibold ${t.input} focus:outline-none`} />
+                            </div>
+                            <div>
+                                <label className={`text-[11px] font-bold uppercase tracking-wider ${t.sub}`}>Horizon (months)</label>
+                                <input type="number" min="1" max="60" value={planMonths} onChange={e => setPlanMonths(e.target.value)}
+                                    className={`w-full mt-1 px-3 py-2 rounded-lg border text-sm font-semibold ${t.input} focus:outline-none`} />
+                            </div>
+                        </div>
+                        <button onClick={runPlan} disabled={planning}
+                            className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-60">
+                            <Calculator className="w-4 h-4" /> {planning ? 'Calculating...' : 'Calculate Projection'}
+                        </button>
+
+                        {planResult && (
+                            <div className="mt-5 space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <PlanStat dark={dark} t={t} label="Projected Return" value={money(planResult.projectedReturn)} accent />
+                                    <PlanStat dark={dark} t={t} label="Total at Maturity" value={money(planResult.projectedTotal)} />
+                                    <PlanStat dark={dark} t={t} label="Marketplace Rate" value={planResult.marketplaceRate + '%'} />
+                                    <PlanStat dark={dark} t={t} label="Monthly Income" value={money(planResult.monthlyIncome)} />
+                                    <PlanStat dark={dark} t={t} label="Est. Invoices" value={planResult.estInvoices} />
+                                    <PlanStat dark={dark} t={t} label="Avg Ticket" value={money(planResult.avgTicket)} />
+                                </div>
+                                {planResult.meetsTarget !== null && (
+                                    <div className={`px-3.5 py-2.5 rounded-xl text-xs font-medium ${planResult.meetsTarget ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                        {planResult.meetsTarget ? 'Meets' : 'Below'} your target &mdash; marketplace {planResult.marketplaceRate}% vs target {portfolio.targetRate}% ({planResult.targetGap > 0 ? '+' : ''}{planResult.targetGap}%)
+                                    </div>
+                                )}
+                                <p className={`text-[11px] ${t.muted}`}>Based on {planResult.sampleSize} funded records at an effective {planResult.effectiveAnnualReturnPct}% annualised.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Slide-over: Return Target + Investment Notes (Feature 3 write side) */}
             {panelOpen && (
@@ -402,6 +500,26 @@ function Legend({ color, label, value, dark }) {
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }}></span>{label}
             </span>
             <span className={`text-xs font-semibold ${dark ? 'text-white' : 'text-slate-800'}`}>{value}</span>
+        </div>
+    );
+}
+
+function RiskStat({ label, value, sub, tone, t }) {
+    const toneCls = tone === 'rose' ? 'text-rose-500' : tone === 'amber' ? 'text-amber-500' : 'text-emerald-500';
+    return (
+        <div>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${t.muted}`}>{label}</p>
+            <p className={`text-base font-bold leading-tight ${toneCls}`}>{value}</p>
+            <p className={`text-[10px] ${t.muted} leading-tight`}>{sub}</p>
+        </div>
+    );
+}
+
+function PlanStat({ label, value, accent, dark, t }) {
+    return (
+        <div className={`rounded-xl p-3 ${dark ? 'bg-white/[0.03] border border-white/5' : 'bg-slate-50 border border-slate-100'}`}>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${t.muted}`}>{label}</p>
+            <p className={`text-base font-bold mt-0.5 ${accent ? 'text-emerald-500' : t.h1}`}>{value}</p>
         </div>
     );
 }

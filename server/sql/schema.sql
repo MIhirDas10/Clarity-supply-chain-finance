@@ -603,3 +603,29 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_calendar_events_invoice ON calendar_events(invoice_id);
+
+-- Credit Limit & Exposure Engine (add-on): a per-buyer credit limit an analyst
+-- can set. When absent, the engine derives a recommended limit from the score.
+CREATE TABLE IF NOT EXISTS credit_limits (
+  buyer_name   TEXT PRIMARY KEY,
+  credit_limit NUMERIC(14, 2) NOT NULL,
+  set_by       TEXT DEFAULT 'Analyst',
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Risk-based pricing model parameters (single row, id = 1). Tunable via
+-- GET/PATCH /api/credit/pricing-policy; drives the score -> discount-rate model
+-- and the portfolio expected-loss analytics.
+CREATE TABLE IF NOT EXISTS pricing_policy (
+  id              INTEGER PRIMARY KEY,
+  base_rate       NUMERIC(6, 3) NOT NULL,   -- annual cost of capital %
+  platform_margin NUMERIC(6, 3) NOT NULL,   -- annual platform margin %
+  lgd             NUMERIC(5, 4) NOT NULL,   -- loss given default (0-1)
+  pd_floor        NUMERIC(5, 4) NOT NULL,   -- best-case annual PD (score 100)
+  pd_ceiling      NUMERIC(5, 4) NOT NULL,   -- worst-case annual PD (score 0)
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO pricing_policy (id, base_rate, platform_margin, lgd, pd_floor, pd_ceiling)
+VALUES (1, 8.0, 2.0, 0.40, 0.01, 0.25)
+ON CONFLICT (id) DO NOTHING;
