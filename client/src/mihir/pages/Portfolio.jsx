@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Wallet, TrendingUp, CheckCircle2, Layers, Landmark,
-    Calendar, AlertTriangle, ChevronRight, Sun, Moon, Activity, ArrowUpRight,
+    Calendar, ChevronRight, Sun, Moon, Activity, ArrowUpRight,
     StickyNote, Target, Plus, Trash2, Flag, X, Calculator, ShieldAlert, Zap, TrendingDown
 } from 'lucide-react';
 import {
@@ -283,25 +283,6 @@ export default function Portfolio() {
                     <Kpi dark={dark} icon={<CheckCircle2 className="w-4 h-4" />} label="Realized Return" value={money(p.realizedReturn)} badge={`${p.realizedAnnualRate || 0}% annual`} sub={`${p.completedCount || 0} completed`} />
                     <Kpi dark={dark} icon={<Layers className="w-4 h-4" />} label="Total Invested" value={money(p.totalInvested)} badge={`${p.totalInvestments || 0} deals`} sub="lifetime capital" />
                 </div>
-
-                {/* Risk-adjusted strip: expected loss + risk-adjusted return + concentration (from buyer credit scores) */}
-                {p.risk && (
-                    <div className={`${t.card} rounded-xl shadow-sm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6`}>
-                        <div className="flex items-center gap-2 shrink-0">
-                            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500"><AlertTriangle className="w-3.5 h-3.5" /></span>
-                            <span className={`text-[11px] font-bold uppercase tracking-wider ${t.sub}`}>Risk-Adjusted</span>
-                        </div>
-                        <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <RiskStat t={t} label="Expected Loss" value={money(p.risk.expectedLoss)} sub={`${p.risk.expectedLossRate}% of capital`} tone="rose" />
-                            <RiskStat t={t} label="Risk-Adj. Return" value={money(p.risk.riskAdjustedReturn)} sub={`vs ${money(p.projectedReturn)} raw`} tone="emerald" />
-                            <RiskStat t={t} label="Risk-Adj. Rate" value={`${p.risk.riskAdjustedAnnualRate}%`} sub={`vs ${p.projectedAnnualRate}% raw`} tone="emerald" />
-                            <RiskStat t={t} label="Concentration"
-                                value={p.risk.concentration.status}
-                                sub={`HHI ${p.risk.concentration.hhi} · top ${p.risk.concentration.topBuyerPct}%`}
-                                tone={p.risk.concentration.status === 'Concentrated' ? 'rose' : p.risk.concentration.status === 'Moderate' ? 'amber' : 'emerald'} />
-                        </div>
-                    </div>
-                )}
 
                 {/* Middle and Bottom: Table (Left) + Donut & Returns (Right) */}
                 <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -679,17 +660,6 @@ function Legend({ color, label, value, dark }) {
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }}></span>{label}
             </span>
             <span className={`text-xs font-semibold ${dark ? 'text-white' : 'text-slate-800'}`}>{value}</span>
-        </div>
-    );
-}
-
-function RiskStat({ label, value, sub, tone, t }) {
-    const toneCls = tone === 'rose' ? 'text-rose-500' : tone === 'amber' ? 'text-amber-500' : 'text-emerald-500';
-    return (
-        <div>
-            <p className={`text-[10px] font-bold uppercase tracking-wider ${t.muted}`}>{label}</p>
-            <p className={`text-base font-bold leading-tight ${toneCls}`}>{value}</p>
-            <p className={`text-[10px] ${t.muted} leading-tight`}>{sub}</p>
         </div>
     );
 }

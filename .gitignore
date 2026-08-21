@@ -29,3 +29,7 @@ output/
 screenshot_buyer.png
 postman
 tmp/
+MIHIR_CONTEXT.md
+PROJECT_CONTEXT.md
+tools
+build_feature_3_4_guide.py

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { reconcileInvoice } = require('../services/calendarSync');
+const credit = require('../controllers/creditController');
 
 // GET /api/marketplace/invoices
 router.get('/invoices', async (req, res) => {
@@ -66,12 +67,34 @@ router.post('/:invoiceId/fund', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Invoice already claimed by another funder' });
     }
+
+    // Credit-limit control (see creditController.checkCreditLimit): reject
+    // funding that would push the buyer past their score-recommended, override,
+    // or analyst-set credit limit. Same enforcement the wallet/Auto-Invest
+    // paths use, so the marketplace honours it too.
+    const faceValue = Number(invoice.invoice_amount);
+    const limitCheck = await credit.checkCreditLimit(client, invoice.buyer_name, faceValue);
+    if (!limitCheck.ok) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: limitCheck.reason });
+    }
+
+    // Risk-based pricing: record the discounted payout the supplier receives
+    // (face - risk premium). The discount is the funder's return at settlement.
+    // Same math as the wallet path and GET /pricing, so the marketplace honours
+    // the buyer's credit score too.
+    const tenorDays = credit.tenorDaysUntil(invoice.due_date);
+    const quote = await credit.quoteForBuyer(invoice.buyer_name, faceValue, tenorDays);
+    const payout = (quote.supplierPayout > 0 && quote.supplierPayout <= faceValue)
+      ? quote.supplierPayout : faceValue;
+
     // Execute update
     const updateRes = await client.query(
-      `UPDATE invoices 
-       SET status = 'Funded', current_stage = 'Funded', funder_id = $2, funded_at = NOW(), updated_at = NOW() 
+      `UPDATE invoices
+       SET status = 'Funded', current_stage = 'Funded', funder_id = $2, funded_at = NOW(),
+           payout_amount = $3, updated_at = NOW()
        WHERE id = $1 RETURNING *`,
-      [invoiceId, funderId]
+      [invoiceId, funderId, payout]
     );
     // Log stage transition
     await client.query(

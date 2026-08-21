@@ -17,10 +17,10 @@ const FundingModal = ({ invoice, funder, onClose, onSuccess }) => {
       });
 
       if (!response.ok) {
-        if (response.status === 409) {
-          throw new Error('This invoice has already been claimed by another funder or is no longer available.');
-        }
-        throw new Error('Failed to fund the invoice. Please try again.');
+        // Surface the server's real reason (credit limit, already claimed,
+        // frozen dispute, etc.) instead of a hardcoded guess.
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || data.message || 'Failed to fund the invoice. Please try again.');
       }
 
       await response.json();
