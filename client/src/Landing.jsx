@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Play, Settings, Zap, ShieldCheck, BarChart3, Activity, Wallet, ArrowRight } from "lucide-react";
 import SideRays from "./components/hero/SideRays";
+import { useAuth } from "./auth/AuthContext.jsx";
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-[#02060B] font-sans text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -55,12 +57,21 @@ export default function Landing() {
               About
             </button>
           </div>
-          <button
-            onClick={() => navigate("/signup")}
-            className="h-[46px] rounded-[25px] bg-[#F4F7FB] px-7 text-[16px] font-bold text-[#080B10] shadow-[inset_0_-11px_22px_rgba(16,28,46,0.12),0_14px_32px_rgba(255,255,255,0.16)] transition-all hover:bg-white active:scale-95 max-md:h-11 max-md:px-5 max-md:text-[14px]"
-          >
-            Sign up
-          </button>
+          {user ? (
+            <button
+              onClick={() => navigate("/home")}
+              className="h-[46px] rounded-[25px] bg-[#F4F7FB] px-7 text-[16px] font-bold text-[#080B10] shadow-[inset_0_-11px_22px_rgba(16,28,46,0.12),0_14px_32px_rgba(255,255,255,0.16)] transition-all hover:bg-white active:scale-95 max-md:h-11 max-md:px-5 max-md:text-[14px]"
+            >
+              Go to Portal
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/signup")}
+              className="h-[46px] rounded-[25px] bg-[#F4F7FB] px-7 text-[16px] font-bold text-[#080B10] shadow-[inset_0_-11px_22px_rgba(16,28,46,0.12),0_14px_32px_rgba(255,255,255,0.16)] transition-all hover:bg-white active:scale-95 max-md:h-11 max-md:px-5 max-md:text-[14px]"
+            >
+              Sign up
+            </button>
+          )}
         </div>
       </nav>
 
@@ -92,13 +103,23 @@ export default function Landing() {
         </p>
 
         <div className="flex items-center justify-center gap-3 max-sm:w-full max-sm:flex-col">
-          <button
-            onClick={() => navigate("/signup")}
-            className="flex h-[46px] min-w-[140px] cursor-pointer items-center justify-center gap-2 rounded-[24px] bg-white px-5 text-[14px] font-bold text-[#080B10] shadow-[0_0_38px_rgba(255,255,255,0.23),inset_0_-12px_24px_rgba(9,21,36,0.11)] transition-all hover:bg-[#f5f7fa] active:scale-95 max-sm:w-full"
-          >
-            <Zap className="h-[15px] w-[15px] fill-current" strokeWidth={2.5} />
-            Get started
-          </button>
+          {user ? (
+            <button
+              onClick={() => navigate("/home")}
+              className="flex h-[46px] min-w-[140px] cursor-pointer items-center justify-center gap-2 rounded-[24px] bg-white px-5 text-[14px] font-bold text-[#080B10] shadow-[0_0_38px_rgba(255,255,255,0.23),inset_0_-12px_24px_rgba(9,21,36,0.11)] transition-all hover:bg-[#f5f7fa] active:scale-95 max-sm:w-full"
+            >
+              <Zap className="h-[15px] w-[15px] fill-current" strokeWidth={2.5} />
+              Go to Portal
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/signup")}
+              className="flex h-[46px] min-w-[140px] cursor-pointer items-center justify-center gap-2 rounded-[24px] bg-white px-5 text-[14px] font-bold text-[#080B10] shadow-[0_0_38px_rgba(255,255,255,0.23),inset_0_-12px_24px_rgba(9,21,36,0.11)] transition-all hover:bg-[#f5f7fa] active:scale-95 max-sm:w-full"
+            >
+              <Zap className="h-[15px] w-[15px] fill-current" strokeWidth={2.5} />
+              Get started
+            </button>
+          )}
           <button
             onClick={() => navigate("/pipeline")}
             className="flex h-[46px] min-w-[156px] cursor-pointer items-center justify-center gap-2 rounded-[24px] border border-white/14 bg-[#071018]/28 px-5 text-[14px] font-semibold text-[#F0F3F7] backdrop-blur-sm transition-all hover:border-white/22 hover:bg-white/[0.06] active:scale-95 max-sm:w-full"
@@ -178,13 +199,23 @@ export default function Landing() {
           <p className="mb-14 max-w-[500px] text-[16px] leading-[1.6] text-[#AEB7C7]">
             Stop guessing. See exactly where your capital is tied up and unlock liquidity faster than ever before.
           </p>
-          <button
-            onClick={() => navigate("/signup")}
-            style={{ marginTop: '32px' }}
-            className="flex h-[46px] cursor-pointer items-center justify-center gap-2 rounded-[24px] bg-white px-6 text-[14px] font-bold text-[#080B10] shadow-[0_0_38px_rgba(255,255,255,0.23),inset_0_-12px_24px_rgba(9,21,36,0.11)] transition-all hover:bg-[#f5f7fa] active:scale-95"
-          >
-            Uncover your cash flow <ArrowRight className="h-[15px] w-[15px]" strokeWidth={2.5} />
-          </button>
+          {user ? (
+            <button
+              onClick={() => navigate("/home")}
+              style={{ marginTop: '32px' }}
+              className="flex h-[46px] cursor-pointer items-center justify-center gap-2 rounded-[24px] bg-white px-6 text-[14px] font-bold text-[#080B10] shadow-[0_0_38px_rgba(255,255,255,0.23),inset_0_-12px_24px_rgba(9,21,36,0.11)] transition-all hover:bg-[#f5f7fa] active:scale-95"
+            >
+              Go to Portal <ArrowRight className="h-[15px] w-[15px]" strokeWidth={2.5} />
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/signup")}
+              style={{ marginTop: '32px' }}
+              className="flex h-[46px] cursor-pointer items-center justify-center gap-2 rounded-[24px] bg-white px-6 text-[14px] font-bold text-[#080B10] shadow-[0_0_38px_rgba(255,255,255,0.23),inset_0_-12px_24px_rgba(9,21,36,0.11)] transition-all hover:bg-[#f5f7fa] active:scale-95"
+            >
+              Uncover your cash flow <ArrowRight className="h-[15px] w-[15px]" strokeWidth={2.5} />
+            </button>
+          )}
         </div>
       </section>
 

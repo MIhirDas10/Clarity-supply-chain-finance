@@ -1,8 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { Activity, Bell, BriefcaseBusiness, CalendarDays, FolderLock, Landmark, LogOut, Settings, Sparkles, Store, Wallet } from "lucide-react";
+import { Activity, Bell, BriefcaseBusiness, CalendarDays, FolderLock, Landmark, LogOut, Settings, Sparkles, Store, Wallet, Home } from "lucide-react";
 import { useAuth } from "../auth/AuthContext.jsx";
 
 const funderItems = [
+ { label: "Home", to: "/", icon: Home, built: true },
  { label: "Portfolio", to: "/funder/portfolio", icon: BriefcaseBusiness },
  { label: "Repayment & Settlement", to: "/funder/settlements", icon: Landmark },
  { label: "Repayment Calendar", to: "/funder/calendar", icon: CalendarDays },

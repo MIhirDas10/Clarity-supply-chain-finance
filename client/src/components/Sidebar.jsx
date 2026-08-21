@@ -10,12 +10,14 @@ import {
   Bell,
   Settings,
   LogOut,
+  Home,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext.jsx";
 
 // One sidebar for the whole platform. Each "built" item routes to a feature a
 // group member owns; the rest are honest placeholders for work not done yet.
 const navItems = [
+  { label: "Home", to: "/", icon: Home, built: true },
   { label: "Upload Invoice", to: "/upload", icon: Upload, built: true },            // Apurba
   { label: "Discount Calculator", to: "/discount", icon: Zap, built: true },        // Digonto
   { label: "My Invoices", to: "/my-invoices", icon: FileText, built: true },        // Apurba

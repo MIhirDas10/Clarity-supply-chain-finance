@@ -7,10 +7,12 @@ import {
   FileCheck2,
   ShieldAlert,
   LogOut,
+  Home,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext.jsx";
 
 const buyerItems = [
+  { label: "Home", to: "/", icon: Home, built: true },
   {
     label: "Supplier Health Analytics",
     to: "/buyer/health",
