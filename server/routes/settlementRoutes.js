@@ -1,3 +1,20 @@
+// Settelement routes for the Clarity Supply Chain Finance platform. These routes handle invoice repayment, settlement, and related wallet transactions.
+// Ameet Faisal - Module 3 / SL 3
+//
+// GET /api/settlements
+//
+// Returns a list of invoice settlements for the logged-in user, filtered by role and optional status query parameter.
+// GET /api/settlements/due
+//
+// Returns a list of funded invoices that are due or overdue for the logged-in user, filtered by role.
+// POST /api/settlements/reconcile-overdue
+//
+// Allows buyers to reconcile their overdue invoices, updating their status and notifying relevant parties.
+// POST /api/settlements/:invoiceId/repay
+//
+// Allows buyers to submit repayments for a specific invoice, updating the invoice status, wallet balances, and transaction history accordingly. 
+// This route also handles the repayment waterfall, ensuring that the funder receives their due amount, the platform fee is deducted, and any residual is handled appropriately.
+// The route also publishes notifications to the buyer and funder regarding the repayment and settlement status.
 const express = require('express');
 const pool = require('../db');
 const supabase = require('../config/supabase');

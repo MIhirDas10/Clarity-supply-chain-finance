@@ -1,3 +1,18 @@
+// this is the service file for Google Calendar integration
+//  Ameet Faisal - Module 4 of Clarity Supply Chain Finance
+// This file contains functions to handle Google Calendar API requests, OAuth token management, and invoice reconciliation with calendar events.
+// It provides functions to check if the server is configured with Google credentials, generate OAuth state tokens, make authenticated requests to the Google Calendar API, and reconcile invoice data with calendar events based on user roles and invoice status.
+// The functions in this file are used by the calendarRoutes.js file to implement the API endpoints for connecting, syncing, and disconnecting Google Calendar for users of the Clarity platform.
+// The functions are designed to work with the PostgreSQL database used by the Clarity platform, and they handle both local event storage and synchronization with Google Calendar events.
+// The apis are designed to support multiple user roles (buyer, funder, admin) and ensure that only relevant events are created or updated in the calendar based on the user's role and the invoice's status.
+// The module exports the following functions:
+// - configured: checks if the server is configured with Google credentials
+// - accessToken: retrieves or refreshes the access token for a given calendar connection
+// - googleRequest: makes an authenticated request to the Google Calendar API
+// - oauthState: generates a random state token for OAuth flow
+// - reconcileInvoice: reconciles a specific invoice's data with calendar events based on user roles and invoice status
+// - GOOGLE_SCOPE: defines the required scope for Google Calendar API access
+
 const crypto = require('crypto');
 const https = require('https');
 const path = require('path');

@@ -1,3 +1,28 @@
+// Clarity - Google Calendar Integration (Ameet Faisal - Module 4 / SL 4)
+//
+// GET /api/calendar/status
+//
+// Returns the current Google Calendar connection status for the logged-in user, including whether the server is configured with Google credentials and whether the user has an active connection.
+//
+// GET /api/calendar/connect
+//
+// Initiates the Google OAuth flow for the logged-in user, returning a URL to redirect the user to Google's authorization page.
+//
+// GET /api/calendar/oauth/callback
+//
+// Handles the OAuth callback from Google, exchanging the authorization code for an access token and storing it in the database.
+//
+// GET /api/calendar/events
+//
+// Returns a list of calendar events that have been synced for the logged-in user, including invoice details and event status.
+//
+// POST /api/calendar/sync/:invoiceId
+//
+// Syncs a specific invoice's due or maturity date to the connected Google Calendar, creating or updating a calendar event as necessary.
+//
+// DELETE /api/calendar/disconnect
+//
+// Disconnects the user's Google Calendar connection, removing any stored tokens and revoking access. 
 const express = require('express');
 const https = require('https');
 const pool = require('../db');
