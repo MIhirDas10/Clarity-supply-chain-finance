@@ -1,9 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const portfolioController = require('../controllers/portfolioController');
+const stressController = require('../controllers/stressController');
 
 // Platform-wide totals across all funders
 router.get('/summary', portfolioController.getSummary);
+
+// --- Feature 3 Part B: Portfolio Stress Testing (funder risk simulation) ----
+router.get('/stress/scenarios', stressController.listScenarios);
+router.post('/stress/scenarios', stressController.createScenario);
+router.get('/stress/scenarios/:id', stressController.getScenario);
+router.patch('/stress/scenarios/:id', stressController.updateScenario);
+router.delete('/stress/scenarios/:id', stressController.deleteScenario);
+router.post('/stress/run', stressController.runStress);
+router.get('/stress/runs', stressController.listRuns);
 
 // Return Calculator / Deployment Planner - projects returns from funder inputs
 router.post('/return-calculator', portfolioController.returnCalculator);

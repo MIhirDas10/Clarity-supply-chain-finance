@@ -206,6 +206,8 @@ export default function BuyerCredit() {
         loadPricing(name, priceAmount, priceTenor);
     }
 
+    const activeBuyer = expanded ? buyers.find(b => b.buyerName === expanded) : null;
+
     if (loading) {
         return (
             <div className="p-10 flex items-center justify-center min-h-[400px]">
@@ -344,25 +346,73 @@ export default function BuyerCredit() {
                                 <div className="flex items-center gap-8 text-right">
                                     <MetricMini icon={<Clock className="w-3.5 h-3.5" />} label="Days to Pay" value={buyer.metrics.avgDaysToPay === null ? '-' : buyer.metrics.avgDaysToPay} />
                                     <MetricMini icon={<AlertTriangle className="w-3.5 h-3.5" />} label="Disputes" value={buyer.metrics.disputeCount} />
-                                    <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                                    <ChevronRight className="w-4 h-4 text-slate-400" />
                                 </div>
                             </div>
 
-                            {isOpen && (
-                                <div className="px-6 pb-6 pt-2 border-t border-slate-100 bg-slate-50/50 space-y-8">
-                                    <div className="grid md:grid-cols-2 gap-8 pt-4">
+
+                        </div>
+                    );
+                })}
+
+                {buyers.length === 0 && (
+                    <div className="text-center py-12 bg-white border border-slate-200/80 rounded-2xl border-dashed">
+                        <Gauge className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-slate-500 text-sm font-medium">No buyer activity to score yet.</p>
+                    </div>
+                )}
+
+            {/* Buyer Details Modal */}
+            {activeBuyer && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => toggle(activeBuyer.buyerName)}></div>
+                    <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[1000px] my-auto max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-5 border-b border-slate-100 shrink-0 bg-white z-10">
+                            <div className="flex items-center gap-4">
+                                <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                        <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3.5" />
+                                        <path className={ratingStyle(activeBuyer.rating).ring} strokeDasharray={`${activeBuyer.score}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+                                    </svg>
+                                    <span className="absolute text-sm font-bold text-slate-800">{activeBuyer.score}</span>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                        <Landmark className="w-5 h-5 text-slate-400" /> {activeBuyer.buyerName}
+                                    </h2>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold tracking-wider uppercase ${ratingStyle(activeBuyer.rating).badge}`}>
+                                            {activeBuyer.rating}
+                                        </span>
+                                        {activeBuyer.overridden && (
+                                            <span className="px-2 py-0.5 rounded border border-violet-200 bg-violet-50 text-violet-700 text-[10px] font-bold tracking-wider uppercase flex items-center gap-1" title={activeBuyer.overrideReason}>
+                                                <Lock className="w-3 h-3" /> Override
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={() => toggle(activeBuyer.buyerName)} className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        {/* Modal Body */}
+                        <div className="px-8 py-6 md:px-12 md:py-8 overflow-y-auto space-y-10 bg-slate-50/50 flex-1 custom-scrollbar">
+                                    <div className="grid md:grid-cols-2 gap-10 md:gap-14 pt-4">
                                         <div>
                                             <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-4">
                                                 <Gauge className="w-3.5 h-3.5" /> Score Breakdown
                                             </h4>
-                                            <ComponentBar label="Payment Speed" weight="30%" value={buyer.components.paymentSpeed} icon={<TrendingUp className="w-3.5 h-3.5" />} />
-                                            <ComponentBar label="On-Time Reliability" weight="25%" value={buyer.components.reliability} icon={<Clock className="w-3.5 h-3.5" />} />
-                                            <ComponentBar label="Dispute-Free Record" weight="25%" value={buyer.components.disputeFree} icon={<ShieldCheck className="w-3.5 h-3.5" />} />
-                                            <ComponentBar label="Track Record" weight="20%" value={buyer.components.trackRecord} icon={<FileCheck2 className="w-3.5 h-3.5" />} />
+                                            <ComponentBar label="Payment Speed" weight="30%" value={activeBuyer.components.paymentSpeed} icon={<TrendingUp className="w-3.5 h-3.5" />} />
+                                            <ComponentBar label="On-Time Reliability" weight="25%" value={activeBuyer.components.reliability} icon={<Clock className="w-3.5 h-3.5" />} />
+                                            <ComponentBar label="Dispute-Free Record" weight="25%" value={activeBuyer.components.disputeFree} icon={<ShieldCheck className="w-3.5 h-3.5" />} />
+                                            <ComponentBar label="Track Record" weight="20%" value={activeBuyer.components.trackRecord} icon={<FileCheck2 className="w-3.5 h-3.5" />} />
                                             <div className="grid grid-cols-3 gap-2 mt-5">
-                                                <Stat label="Confirmed" value={buyer.metrics.confirmationCount} />
-                                                <Stat label="Overdue" value={buyer.metrics.overdueCount} />
-                                                <Stat label="Financed" value={'৳' + Number(buyer.metrics.financedVolume).toLocaleString()} />
+                                                <Stat label="Confirmed" value={activeBuyer.metrics.confirmationCount} />
+                                                <Stat label="Overdue" value={activeBuyer.metrics.overdueCount} />
+                                                <Stat label="Financed" value={'৳' + Number(activeBuyer.metrics.financedVolume).toLocaleString()} />
                                             </div>
                                         </div>
 
@@ -396,7 +446,7 @@ export default function BuyerCredit() {
                                         </div>
                                     </div>
 
-                                    <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="grid md:grid-cols-2 gap-10 md:gap-14">
                                         <div>
                                             <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-4">
                                                 <MessageSquare className="w-3.5 h-3.5" /> Review Notes
@@ -405,7 +455,7 @@ export default function BuyerCredit() {
                                                 <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={2}
                                                     placeholder="Add an analyst note..."
                                                     className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none resize-none" />
-                                                <button onClick={() => addNote(buyer.buyerName)} disabled={!noteText.trim()}
+                                                <button onClick={() => addNote(activeBuyer.buyerName)} disabled={!noteText.trim()}
                                                     className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:scale-95 disabled:opacity-50">
                                                     <Plus className="w-3.5 h-3.5" />
                                                 </button>
@@ -417,7 +467,7 @@ export default function BuyerCredit() {
                                                             <p className="text-sm text-slate-700 break-words">{n.note}</p>
                                                             <p className="text-[10px] text-slate-400 mt-1">{n.author} &middot; {new Date(n.created_at).toLocaleDateString()}</p>
                                                         </div>
-                                                        <button onClick={() => removeNote(buyer.buyerName, n.id)} title="Delete"
+                                                        <button onClick={() => removeNote(activeBuyer.buyerName, n.id)} title="Delete"
                                                             className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 shrink-0">
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         </button>
@@ -431,24 +481,24 @@ export default function BuyerCredit() {
                                             <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-4">
                                                 <PenLine className="w-3.5 h-3.5" /> Manual Override
                                             </h4>
-                                            {buyer.overridden && (
+                                            {activeBuyer.overridden && (
                                                 <div className="mb-3 px-3 py-2 rounded-lg bg-violet-50 border border-violet-200 text-xs text-violet-700">
-                                                    Score pinned at <b>{buyer.score}</b> (computed {buyer.computedScore}). {buyer.overrideReason}
+                                                    Score pinned at <b>{activeBuyer.score}</b> (computed {activeBuyer.computedScore}). {activeBuyer.overrideReason}
                                                 </div>
                                             )}
                                             <div className="space-y-2.5">
                                                 <input type="number" min="0" max="100" value={overrideScore}
                                                     onChange={(e) => setOverrideScore(e.target.value)}
-                                                    placeholder={buyer.overridden ? 'New score (blank to clear override)' : 'Score 0-100'}
+                                                    placeholder={activeBuyer.overridden ? 'New score (blank to clear override)' : 'Score 0-100'}
                                                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none" />
                                                 <input type="text" value={overrideReason}
                                                     onChange={(e) => setOverrideReason(e.target.value)}
                                                     placeholder="Reason (required)"
                                                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none" />
-                                                <button onClick={() => saveOverride(buyer.buyerName)} disabled={savingOverride}
+                                                <button onClick={() => saveOverride(activeBuyer.buyerName)} disabled={savingOverride}
                                                     className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 active:scale-95 disabled:opacity-60">
                                                     <Lock className="w-3.5 h-3.5" />
-                                                    {savingOverride ? 'Saving...' : (overrideScore === '' && buyer.overridden ? 'Clear Override' : 'Apply Override')}
+                                                    {savingOverride ? 'Saving...' : (overrideScore === '' && activeBuyer.overridden ? 'Clear Override' : 'Apply Override')}
                                                 </button>
                                                 <p className="text-[11px] text-slate-400 leading-relaxed">
                                                     A manual override pins the score and is written to the history with your reason. Leave the score blank and apply to clear an existing override.
@@ -500,13 +550,13 @@ export default function BuyerCredit() {
                                                     <div className="flex items-center gap-2">
                                                         <input type="number" min="0" value={limitInput} onChange={e => setLimitInput(e.target.value)}
                                                             className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none" />
-                                                        <button onClick={() => saveLimit(buyer.buyerName, false)} disabled={savingLimit}
+                                                        <button onClick={() => saveLimit(activeBuyer.buyerName, false)} disabled={savingLimit}
                                                             className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:scale-95 disabled:opacity-60">
                                                             {savingLimit ? '...' : 'Set'}
                                                         </button>
                                                     </div>
                                                     {exposure.isCustomLimit && (
-                                                        <button onClick={() => saveLimit(buyer.buyerName, true)}
+                                                        <button onClick={() => saveLimit(activeBuyer.buyerName, true)}
                                                             className="mt-2 text-[11px] font-semibold text-slate-500 hover:text-slate-800 underline">
                                                             Reset to score-recommended limit
                                                         </button>
@@ -566,7 +616,7 @@ export default function BuyerCredit() {
                                                             <input type="number" min="1" max="365" value={priceTenor} onChange={e => setPriceTenor(e.target.value)}
                                                                 className="w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none" />
                                                         </div>
-                                                        <button onClick={() => loadPricing(buyer.buyerName, priceAmount, priceTenor)}
+                                                        <button onClick={() => loadPricing(activeBuyer.buyerName, priceAmount, priceTenor)}
                                                             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95">
                                                             <DollarSign className="w-3.5 h-3.5" /> Reprice
                                                         </button>
@@ -582,21 +632,15 @@ export default function BuyerCredit() {
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                            )}
+                                
                         </div>
-                    );
-                })}
-
-                {buyers.length === 0 && (
-                    <div className="text-center py-12 bg-white border border-slate-200/80 rounded-2xl border-dashed">
-                        <Gauge className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-slate-500 text-sm font-medium">No buyer activity to score yet.</p>
                     </div>
-                )}
-            </div>
-        </div>
-    );
+                </div>
+            )}
+
+            </div>
+        </div>
+    );
 }
 
 function SummaryCard({ label, value, accent }) {

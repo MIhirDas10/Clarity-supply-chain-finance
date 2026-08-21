@@ -225,6 +225,51 @@ async function computePortfolios(funderId) {
     });
 }
 
+// Active (capital-still-at-risk) holdings for one funder, each enriched with the
+// buyer's default probability + baseline expected loss. Exported so the Stress
+// Testing module (Feature 3 - Part B) can apply scenario shocks to real holdings
+// without re-deriving the fee/holding/PD logic.
+exports.activeHoldingsWithRisk = async (funderId) => {
+    const records = await loadFunderRecords(funderId);
+    const scoreMap = await credit.allBuyerScores();
+    const policy = await credit.loadPricingPolicy();
+
+    const holdings = [];
+    records.forEach(rec => {
+        const isRepaid = rec.repaidDate !== null || rec.status === 'Completed';
+        if (isRepaid) return; // stress applies only to capital still out
+
+        const grossReturn = rec.faceValue - rec.principal;
+        const platformFee = rec.faceValue * rec.feeRate;
+        let netReturn = grossReturn - platformFee;
+        if (netReturn < 0) netReturn = grossReturn;
+
+        let holdingDays = 90;
+        if (rec.fundedDate && rec.dueDate) {
+            const d = daysBetween(rec.dueDate, rec.fundedDate);
+            if (d > 0) holdingDays = d;
+        }
+
+        const score = scoreMap[rec.buyerName] != null ? scoreMap[rec.buyerName] : 50;
+        const pdAnnual = credit.pdFromScore(score, policy);
+        const lgd = policy.lgd;
+        const expectedLoss = rec.principal * (pdAnnual * (holdingDays / 365)) * lgd;
+
+        holdings.push({
+            invoiceId: rec.invoiceId,
+            buyerName: rec.buyerName,
+            principal: rec.principal,
+            netReturn,
+            holdingDays,
+            score,
+            pdAnnual,
+            lgd,
+            expectedLoss
+        });
+    });
+    return holdings;
+};
+
 // GET /api/portfolio/funders
 exports.getFunders = async (req, res) => {
     try {

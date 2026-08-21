@@ -41,14 +41,24 @@ export const createInvoice = async (invoiceData) => {
 };
 
 // ---------------------------------------------------------------------------
-// Shared JSON helper. Throws with the server's { error } message on failure so
-// screens can surface it.
+// The platform now guards /api behind a JWT (Module 4 auth). Every request must
+// carry the logged-in user's token, saved by the auth context under this key.
 // ---------------------------------------------------------------------------
-async function request(url, options) {
-    const response = await fetch(url, options);
+export function authHeaders() {
+    const token = localStorage.getItem('clarity_token');
+    return token ? { Authorization: 'Bearer ' + token } : {};
+}
+
+// ---------------------------------------------------------------------------
+// Shared JSON helper. Attaches the auth token, and throws with the server's
+// { error } message on failure so screens can surface it.
+// ---------------------------------------------------------------------------
+async function request(url, options = {}) {
+    const merged = { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } };
+    const response = await fetch(url, merged);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(data.error || 'Request failed');
+        throw new Error(data.error || data.message || 'Request failed');
     }
     return data;
 }
@@ -75,6 +85,14 @@ export const updatePortfolioNote = (id, patch) => request('/api/portfolio/notes/
 export const deletePortfolioNote = (id) => request('/api/portfolio/notes/' + id, { method: 'DELETE' });
 // Return Calculator / Deployment Planner (compute from funder inputs)
 export const runReturnCalculator = (inputs) => request('/api/portfolio/return-calculator', jsonBody('POST', inputs));
+
+// Portfolio Stress Testing (Feature 3 - Part B): scenarios CRUD + run engine
+export const getStressScenarios = (funder) => request('/api/portfolio/stress/scenarios' + (funder ? '?funder=' + encodeURIComponent(funder) : ''));
+export const createStressScenario = (s) => request('/api/portfolio/stress/scenarios', jsonBody('POST', s));
+export const updateStressScenario = (id, patch) => request('/api/portfolio/stress/scenarios/' + id, jsonBody('PATCH', patch));
+export const deleteStressScenario = (id) => request('/api/portfolio/stress/scenarios/' + id, { method: 'DELETE' });
+export const runStressTest = (funderId, scenarioId) => request('/api/portfolio/stress/run', jsonBody('POST', { funderId, scenarioId }));
+export const getStressRuns = (funder) => request('/api/portfolio/stress/runs' + (funder ? '?funder=' + encodeURIComponent(funder) : ''));
 
 // ---------------------------------------------------------------------------
 // Feature 4 - Buyer Credit Scoring Engine

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
     Wallet, TrendingUp, CheckCircle2, Layers, Landmark,
     Calendar, AlertTriangle, ChevronRight, Sun, Moon, Activity, ArrowUpRight,
-    StickyNote, Target, Plus, Trash2, Flag, X, Calculator
+    StickyNote, Target, Plus, Trash2, Flag, X, Calculator, ShieldAlert, Zap, TrendingDown
 } from 'lucide-react';
 import {
     getFunderPortfolio, setFunderTarget,
     getPortfolioNotes, createPortfolioNote, updatePortfolioNote, deletePortfolioNote,
-    runReturnCalculator
+    runReturnCalculator, authHeaders,
+    getStressScenarios, createStressScenario, deleteStressScenario, runStressTest, getStressRuns
 } from '../services/api';
 
 export default function Portfolio() {
@@ -45,6 +46,59 @@ export default function Portfolio() {
             setPlanResult(res);
         } catch (e) { console.error(e); }
         setPlanning(false);
+    }
+
+    // Portfolio Stress Testing (Feature 3 - Part B).
+    const [stressOpen, setStressOpen] = useState(false);
+    const [scenarios, setScenarios] = useState([]);
+    const [selScenario, setSelScenario] = useState('');
+    const [stressResult, setStressResult] = useState(null);
+    const [running, setRunning] = useState(false);
+    const [stressRuns, setStressRuns] = useState([]);
+    const [showNewScenario, setShowNewScenario] = useState(false);
+    const [newScenario, setNewScenario] = useState({ name: '', defaultRateShock: '10', tenorExtensionDays: '30', recoveryHaircut: '0.2' });
+
+    function loadStress(fid) {
+        getStressScenarios(fid).then(list => {
+            setScenarios(list);
+            if (list.length && !selScenario) setSelScenario(String(list[0].id));
+        }).catch(e => console.error(e));
+        getStressRuns(fid).then(setStressRuns).catch(e => console.error(e));
+    }
+
+    async function doRunStress() {
+        if (!selectedId || !selScenario) return;
+        setRunning(true);
+        try {
+            const res = await runStressTest(selectedId, Number(selScenario));
+            setStressResult(res);
+            getStressRuns(selectedId).then(setStressRuns).catch(() => {});
+        } catch (e) { console.error(e); }
+        setRunning(false);
+    }
+
+    async function addScenario() {
+        if (!newScenario.name.trim()) return;
+        try {
+            const created = await createStressScenario({
+                funderId: selectedId,
+                name: newScenario.name.trim(),
+                defaultRateShock: Number(newScenario.defaultRateShock),
+                tenorExtensionDays: Number(newScenario.tenorExtensionDays),
+                recoveryHaircut: Number(newScenario.recoveryHaircut)
+            });
+            setShowNewScenario(false);
+            setNewScenario({ name: '', defaultRateShock: '10', tenorExtensionDays: '30', recoveryHaircut: '0.2' });
+            getStressScenarios(selectedId).then(list => { setScenarios(list); setSelScenario(String(created.id)); });
+        } catch (e) { console.error(e); }
+    }
+
+    async function removeScenario(id) {
+        try {
+            await deleteStressScenario(id);
+            getStressScenarios(selectedId).then(setScenarios);
+            if (String(id) === selScenario) { setSelScenario(''); setStressResult(null); }
+        } catch (e) { console.error(e); }
     }
 
     // Reload the notes list for the selected funder.
@@ -92,7 +146,7 @@ export default function Portfolio() {
     }
 
     useEffect(() => {
-        fetch('/api/portfolio/funders')
+        fetch('/api/portfolio/funders', { headers: authHeaders() })
             .then(r => r.json())
             .then(data => {
                 setFunders(data);
@@ -105,7 +159,7 @@ export default function Portfolio() {
     useEffect(() => {
         if (!selectedId) return;
         setLoading(true);
-        fetch('/api/portfolio/funders/' + selectedId)
+        fetch('/api/portfolio/funders/' + selectedId, { headers: authHeaders() })
             .then(r => r.json())
             .then(data => {
                 setPortfolio(data);
@@ -114,6 +168,8 @@ export default function Portfolio() {
             })
             .catch(e => { console.error(e); setLoading(false); });
         reloadNotes(selectedId);
+        setStressResult(null); setSelScenario('');
+        loadStress(selectedId);
     }, [selectedId]);
 
     function money(n) { return '৳ ' + Number(n || 0).toLocaleString(); }
@@ -186,6 +242,12 @@ export default function Portfolio() {
                         <p className={`mt-1 text-sm ${t.sub}`}>Deployed capital, expected and realized returns, and maturity schedule &mdash; from real transaction events.</p>
                     </div>
                     <div className="flex items-center gap-2.5">
+                        <button onClick={() => setStressOpen(true)} className={`group h-10 pl-2 pr-3.5 rounded-xl border flex items-center gap-2 shadow-sm transition-all active:scale-95 hover:border-rose-500/50 ${t.toggle}`} title="Portfolio stress test">
+                            <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 transition-colors group-hover:bg-rose-500/20">
+                                <ShieldAlert className="w-3.5 h-3.5" />
+                            </span>
+                            <span className={`text-sm font-semibold whitespace-nowrap ${t.h1}`}>Stress Test</span>
+                        </button>
                         <button onClick={() => setPlannerOpen(true)} className={`group h-10 pl-2 pr-3.5 rounded-xl border flex items-center gap-2 shadow-sm transition-all active:scale-95 hover:border-emerald-500/50 ${t.toggle}`} title="Return calculator">
                             <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-500 transition-colors group-hover:bg-emerald-500/20">
                                 <Calculator className="w-3.5 h-3.5" />
@@ -321,6 +383,123 @@ export default function Portfolio() {
                     </div>
                 </div>
             </div>
+
+            {/* Portfolio Stress Testing slide-over (Feature 3 - Part B) */}
+            {stressOpen && (
+                <div className="absolute inset-0 z-30 flex justify-end">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setStressOpen(false)}></div>
+                    <div className={`relative w-full max-w-lg h-full ${dark ? 'bg-[#0f1412]' : 'bg-white'} shadow-2xl flex flex-col`}>
+                        <div className={`flex items-center justify-between px-5 py-4 border-b ${t.divider}`}>
+                            <h2 className={`text-base font-bold ${t.h1} flex items-center gap-2`}>
+                                <ShieldAlert className="w-4 h-4 text-rose-500" /> Portfolio Stress Test
+                            </h2>
+                            <button onClick={() => setStressOpen(false)} className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.muted} hover:${dark ? 'bg-white/5' : 'bg-slate-100'}`}><X className="w-4 h-4" /></button>
+                        </div>
+
+                        <div className="flex-1 overflow-auto p-5 space-y-5">
+                            <p className={`text-xs ${t.muted}`}>Simulate an adverse scenario against the capital you currently hold &mdash; it never funds or picks invoices.</p>
+
+                            {/* Scenario picker */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className={`text-xs font-bold uppercase tracking-wider ${t.sub}`}>Scenario</h3>
+                                    <button onClick={() => setShowNewScenario(v => !v)} className="text-[11px] font-semibold text-rose-500 flex items-center gap-1">
+                                        <Plus className="w-3 h-3" /> {showNewScenario ? 'Cancel' : 'New'}
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    {scenarios.map(s => (
+                                        <div key={s.id} onClick={() => setSelScenario(String(s.id))}
+                                            className={`rounded-xl p-3 border cursor-pointer transition-all ${String(s.id) === selScenario ? 'border-rose-500/60 ring-1 ring-rose-500/30' : t.divider} ${t.card}`}>
+                                            <div className="flex items-center justify-between">
+                                                <span className={`text-sm font-semibold ${t.h1}`}>{s.name} {s.funder_id == null && <span className={`text-[10px] ${t.muted}`}>· template</span>}</span>
+                                                {s.funder_id != null && (
+                                                    <button onClick={(e) => { e.stopPropagation(); removeScenario(s.id); }} className={`${t.muted} hover:text-rose-500`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                                )}
+                                            </div>
+                                            <p className={`text-[11px] mt-1 ${t.muted}`}>+{s.default_rate_shock}pp defaults · +{s.tenor_extension_days}d tenor · {Math.round(s.recovery_haircut * 100)}% recovery haircut</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {showNewScenario && (
+                                    <div className={`mt-3 rounded-xl p-3 ${t.card} space-y-2`}>
+                                        <input value={newScenario.name} onChange={e => setNewScenario(n => ({ ...n, name: e.target.value }))} placeholder="Scenario name"
+                                            className={`w-full px-3 py-2 rounded-lg border text-sm ${t.input} focus:outline-none`} />
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <label className={`text-[10px] font-bold uppercase ${t.muted}`}>+PD pp
+                                                <input type="number" value={newScenario.defaultRateShock} onChange={e => setNewScenario(n => ({ ...n, defaultRateShock: e.target.value }))} className={`w-full mt-1 px-2 py-1.5 rounded-lg border text-sm ${t.input} focus:outline-none`} /></label>
+                                            <label className={`text-[10px] font-bold uppercase ${t.muted}`}>+Days
+                                                <input type="number" value={newScenario.tenorExtensionDays} onChange={e => setNewScenario(n => ({ ...n, tenorExtensionDays: e.target.value }))} className={`w-full mt-1 px-2 py-1.5 rounded-lg border text-sm ${t.input} focus:outline-none`} /></label>
+                                            <label className={`text-[10px] font-bold uppercase ${t.muted}`}>Haircut
+                                                <input type="number" step="0.05" value={newScenario.recoveryHaircut} onChange={e => setNewScenario(n => ({ ...n, recoveryHaircut: e.target.value }))} className={`w-full mt-1 px-2 py-1.5 rounded-lg border text-sm ${t.input} focus:outline-none`} /></label>
+                                        </div>
+                                        <button onClick={addScenario} disabled={!newScenario.name.trim()} className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50">Save scenario</button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button onClick={doRunStress} disabled={running || !selScenario}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 disabled:opacity-60">
+                                <Zap className="w-4 h-4" /> {running ? 'Running...' : 'Run Stress Test'}
+                            </button>
+
+                            {/* Result */}
+                            {stressResult && (
+                                <div className="space-y-3">
+                                    <div className={`rounded-xl p-4 ${stressResult.survives ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-rose-500/10 border border-rose-500/30'}`}>
+                                        <div className="flex items-center gap-2">
+                                            {stressResult.survives
+                                                ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                                : <TrendingDown className="w-5 h-5 text-rose-500" />}
+                                            <span className={`text-sm font-bold ${stressResult.survives ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                {stressResult.survives ? 'Survives the scenario' : 'Portfolio goes underwater'}
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-1.5 ${t.sub}`}>Risk-adjusted return {money(stressResult.baseline.riskAdjustedReturn)} → <b className={stressResult.survives ? 'text-emerald-500' : 'text-rose-500'}>{money(stressResult.stressed.riskAdjustedReturn)}</b> ({stressResult.returnErosionPct}% erosion)</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <PlanStat dark={dark} t={t} label="Expected Loss (base)" value={money(stressResult.baseline.expectedLoss)} />
+                                        <PlanStat dark={dark} t={t} label="Expected Loss (stressed)" value={money(stressResult.stressed.expectedLoss)} accent />
+                                    </div>
+                                    <div>
+                                        <h4 className={`text-[11px] font-bold uppercase tracking-wider ${t.sub} mb-2`}>Worst-hit holdings</h4>
+                                        <div className="space-y-1.5">
+                                            {stressResult.topContributors.map((c, i) => (
+                                                <div key={i} className={`flex items-center justify-between rounded-lg px-3 py-2 ${t.card}`}>
+                                                    <div>
+                                                        <p className={`text-sm font-semibold ${t.h1}`}>{c.buyerName}</p>
+                                                        <p className={`text-[10px] ${t.muted}`}>PD {c.basePd}% → {c.stressedPd}%</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-bold text-rose-500">+{money(c.lossIncrease)}</p>
+                                                        <p className={`text-[10px] ${t.muted}`}>{money(c.baseLoss)} → {money(c.stressedLoss)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Run history */}
+                            {stressRuns.length > 0 && (
+                                <div>
+                                    <h4 className={`text-[11px] font-bold uppercase tracking-wider ${t.sub} mb-2`}>Recent runs</h4>
+                                    <div className="space-y-1.5">
+                                        {stressRuns.slice(0, 6).map(r => (
+                                            <div key={r.id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${t.card}`}>
+                                                <span className={`text-xs font-medium ${t.h1}`}>{r.scenario_name}</span>
+                                                <span className={`text-[11px] font-bold ${r.survives ? 'text-emerald-500' : 'text-rose-500'}`}>{r.survives ? 'Survives' : 'Fails'} · {money(r.stressed_risk_adjusted)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Return Calculator / Deployment Planner modal */}
             {plannerOpen && (

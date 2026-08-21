@@ -42,7 +42,7 @@ const { requireAuth } = require('./middleware/auth');
 const { configured: calendarConfigured } = require('./services/calendarSync');
 
 const app = express();
-const PORT = process.env.PORT || 9480;
+const PORT = process.env.PORT || 5001;
 
 app.use(cors());          // lets the React client (Vite dev server) call this API
 // 10mb rather than the 100kb default: an invoice photo sent as a data URI is

@@ -629,3 +629,43 @@ CREATE TABLE IF NOT EXISTS pricing_policy (
 INSERT INTO pricing_policy (id, base_rate, platform_margin, lgd, pd_floor, pd_ceiling)
 VALUES (1, 8.0, 2.0, 0.40, 0.01, 0.25)
 ON CONFLICT (id) DO NOTHING;
+
+-- ===========================================================================
+-- Feature 3 - Part B: Portfolio Stress Testing (Mihir). Funder-owned risk
+-- simulation on existing holdings; never selects or funds invoices.
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS stress_scenarios (
+  id                   SERIAL PRIMARY KEY,
+  funder_id            TEXT,                         -- NULL = shared template
+  name                 TEXT NOT NULL,
+  description          TEXT,
+  default_rate_shock   NUMERIC(6, 2) NOT NULL DEFAULT 0,   -- pp added to annual PD
+  tenor_extension_days INTEGER NOT NULL DEFAULT 0,          -- capital tied up longer
+  recovery_haircut     NUMERIC(5, 4) NOT NULL DEFAULT 0,    -- 0-1 fraction of recovery lost
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS stress_runs (
+  id                      SERIAL PRIMARY KEY,
+  funder_id               TEXT,
+  scenario_id             INTEGER,
+  scenario_name           TEXT,
+  deployed_capital        NUMERIC(14, 2),
+  projected_return        NUMERIC(14, 2),
+  baseline_expected_loss  NUMERIC(14, 2),
+  stressed_expected_loss  NUMERIC(14, 2),
+  baseline_risk_adjusted  NUMERIC(14, 2),
+  stressed_risk_adjusted  NUMERIC(14, 2),
+  survives                BOOLEAN,
+  created_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Two shared template scenarios so the panel has content immediately.
+INSERT INTO stress_scenarios (funder_id, name, description, default_rate_shock, tenor_extension_days, recovery_haircut)
+SELECT NULL, 'Mild Slowdown', 'Modest rise in defaults and slightly slower payment.', 8, 15, 0.15
+WHERE NOT EXISTS (SELECT 1 FROM stress_scenarios WHERE funder_id IS NULL AND name = 'Mild Slowdown');
+
+INSERT INTO stress_scenarios (funder_id, name, description, default_rate_shock, tenor_extension_days, recovery_haircut)
+SELECT NULL, 'Severe Recession', 'Sharp default spike, long payment delays, poor recovery.', 20, 45, 0.40
+WHERE NOT EXISTS (SELECT 1 FROM stress_scenarios WHERE funder_id IS NULL AND name = 'Severe Recession');
