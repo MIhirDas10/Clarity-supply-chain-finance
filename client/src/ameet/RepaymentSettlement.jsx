@@ -96,7 +96,7 @@ export default function RepaymentSettlement() {
   return (
     <div className="p-6 max-w-[1320px] mx-auto space-y-6">
       <header className="bg-slate-950 text-white rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div><p className="text-xs uppercase tracking-widest text-emerald-300 font-semibold">Ameet / Module 3</p><h1 className="text-2xl font-bold mt-1">{isFunder ? "Investment Settlement" : "Repayment & Settlement"}</h1><p className="text-sm text-slate-300 mt-2">{isFunder ? "Monitor maturity dates, expected funder payouts, and completed settlement outcomes." : "Repay confirmed invoices at maturity and reconcile overdue buyer obligations."}</p></div>
+        <div><h1 className="text-2xl font-bold mt-1">{isFunder ? "Investment Settlement" : "Repayment & Settlement"}</h1><p className="text-sm text-slate-300 mt-2">{isFunder ? "Monitor maturity dates, expected funder payouts, and completed settlement outcomes." : "Repay confirmed invoices at maturity and reconcile overdue buyer obligations."}</p></div>
         {canOperate && <button onClick={reconcile} className="px-4 py-2.5 rounded-lg bg-amber-400 text-slate-950 text-sm font-semibold flex items-center gap-2"><Clock3 size={16} /> Reconcile overdue</button>}
       </header>
       {message && <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex gap-2"><CheckCircle2 size={17} />{message}</div>}
