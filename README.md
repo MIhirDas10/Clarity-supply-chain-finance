@@ -14,7 +14,7 @@ running system. It has **one base** with two folders:
 
 | Member | Feature | Where in the code | API it uses |
 |--------|---------|-------------------|-------------|
-| **Mihir** | Invoice Status **Pipeline Tracker** | `client/src/mihir/` | `GET/PATCH /api/pipeline/invoices` (Supabase) |
+| **Mihir** | Invoice Status **Pipeline Tracker** and **ERP / Accounting Sync** | `client/src/mihir/` | `GET/PATCH /api/pipeline/invoices`, `GET/POST/PATCH /api/erp` (Supabase + pg + Google Sheets) |
 | **Apurba** | Invoice **Upload (OCR)**, **My Invoices**, **Payout History** + CSV | `client/src/apurba/` | `GET/POST /api/invoices`, `GET /api/payouts` (pg) |
 | **Digonto** | Real-Time **Discount Rate Calculator** | `client/src/digonto/` | `GET/POST /api/invoices` (pg) |
 | **Ameet** | **Cash Flow Forecast**, Buyer-Funded **Dynamic Discounting**, **Repayment Calendar**, and **Repayment & Settlement** | `client/src/ameet/` | `GET /api/cashflow/forecast`, `GET/POST/PATCH /api/dynamic-discounting`, `GET/POST /api/settlements`, `GET/POST /api/calendar` (pg + Google Calendar) |
@@ -65,6 +65,7 @@ keeps the different column names the members used (`invoice_number`/`number`,
 cp server/.env.example server/.env
 ```
 Then edit `server/.env` and fill in:
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI_ERP` for ERP / Google Sheets sync
 - `DATABASE_URL` — Supabase → Project Settings → Database → Connection string (Session pooler)
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — Supabase → Project Settings → API
 

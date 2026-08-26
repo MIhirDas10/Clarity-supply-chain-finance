@@ -1,6 +1,7 @@
 const pool = require("../db");
 const { reconcileInvoice } = require("./calendarSync");
 const credit = require("../controllers/creditController");
+const erp = require("./erpSheets"); // Mihir - ERP / Sheets sync
 
 // A funder is not required to sign up before depositing - the wallet row is
 // created the first time we see their id, the same way an invoice's
@@ -165,6 +166,9 @@ async function fundInvoiceFromWallet(invoiceId, funderId, funderName, source) {
     await client.query("COMMIT");
     reconcileInvoice(invoiceId).catch((error) =>
       console.error("Calendar funding sync failed:", error.message),
+    );
+    erp.syncInvoiceToSheet(invoiceId).catch((e) =>
+      console.error("ERP funding sync failed:", e.message),
     );
     return {
       ok: true,

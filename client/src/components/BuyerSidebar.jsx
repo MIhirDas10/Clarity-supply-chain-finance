@@ -6,6 +6,7 @@ import {
   WalletCards,
   FileCheck2,
   ShieldAlert,
+  FileSpreadsheet,
   LogOut,
   Home,
 } from "lucide-react";
@@ -39,6 +40,7 @@ const buyerItems = [
   },
   { label: "Repayment & Settlement", to: "/buyer/settlements", icon: WalletCards, built: true },
   { label: "Repayment Calendar", to: "/buyer/calendar", icon: CalendarDays, built: true },
+  { label: "ERP / Accounting Sync", to: "/buyer/erp", icon: FileSpreadsheet, built: true },
 ];
 
 export default function BuyerSidebar() {

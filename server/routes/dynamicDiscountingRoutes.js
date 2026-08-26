@@ -10,6 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const erp = require('../services/erpSheets'); // Mihir - ERP / Sheets sync
 
 const BUYER_CONFIRMED_STATUSES = ['Buyer Confirmed', 'Confirmed'];
 const DEFAULT_PLATFORM_FEE_RATE = 0.005; // reduced 0.5% facilitation fee
@@ -310,6 +311,7 @@ router.patch('/offers/:id/accept', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    erp.syncInvoiceToSheet(offer.invoice_id).catch((e) => console.error('ERP dynamic-discount sync failed:', e.message));
     res.json(updatedOffer.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');

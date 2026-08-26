@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { reconcileInvoice } = require('../services/calendarSync');
+const erp = require('../services/erpSheets'); // Mihir - ERP / Sheets sync
 const credit = require('../controllers/creditController');
 
 // GET /api/marketplace/invoices
@@ -104,6 +105,7 @@ router.post('/:invoiceId/fund', async (req, res) => {
 
     await client.query('COMMIT');
     reconcileInvoice(invoiceId).catch((error) => console.error('Calendar funding sync failed:', error.message));
+    erp.syncInvoiceToSheet(invoiceId).catch((e) => console.error('ERP funding sync failed:', e.message));
     res.json({ success: true, invoice: updateRes.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');

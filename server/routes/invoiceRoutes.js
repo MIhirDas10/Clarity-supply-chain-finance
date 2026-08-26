@@ -8,6 +8,7 @@ const express = require('express');
 const cloudinary = require('cloudinary').v2;
 const pool = require('../db');
 const { reconcileInvoice } = require('../services/calendarSync');
+const erp = require('../services/erpSheets'); // Mihir - ERP / Sheets sync
 
 const router = express.Router();
 
@@ -242,7 +243,13 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const removed = await pool.query(
-      "DELETE FROM invoices WHERE id::TEXT = $1 AND status = 'Submitted' RETURNING id, invoice_number",
+      `WITH removed AS (
+         DELETE FROM invoices
+         WHERE id::TEXT = $1 AND status = 'Submitted'
+         RETURNING *
+       )
+       SELECT removed.*, COALESCE(s.name, 'Supplier #' || removed.supplier_id) AS supplier_name
+       FROM removed LEFT JOIN suppliers s ON s.id::TEXT = removed.supplier_id`,
       [req.params.id]
     );
 
@@ -252,6 +259,7 @@ router.delete('/:id', async (req, res) => {
       });
     }
     reconcileInvoice(removed.rows[0].id).catch((error) => console.error('Calendar withdrawal sync failed:', error.message));
+    erp.syncWithdrawnInvoice(removed.rows[0]).catch((e) => console.error('ERP withdrawal sync failed:', e.message));
     res.json({ deleted: true, invoice: removed.rows[0] });
   } catch (error) {
     res.status(500).json({ message: 'Could not remove that invoice' });
