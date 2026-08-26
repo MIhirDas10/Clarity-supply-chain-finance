@@ -3,6 +3,7 @@ const router = express.Router();
 const { Pool } = require('pg');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
+const { requireRole } = require('../middleware/auth');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
@@ -104,6 +105,21 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting document:', error);
     res.status(500).json({ message: 'Failed to delete document.' });
+  }
+});
+
+// GET /api/documents/user/:userId - Fetch all documents for a specific user (admin only)
+router.get('/user/:userId', requireRole('admin'), async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const result = await pool.query(
+      'SELECT * FROM supplier_documents WHERE supplier_id = $1 ORDER BY uploaded_at DESC',
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching user documents:', error);
+    res.status(500).json({ message: 'Failed to fetch user documents.' });
   }
 });
 
