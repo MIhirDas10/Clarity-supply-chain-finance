@@ -33,6 +33,7 @@ import SupplierHealth from "./mihir/pages/SupplierHealth.jsx";           // Mihi
 import Notifications from "./mihir/pages/Notifications.jsx";             // Mihir - Notification Center
 import Portfolio from "./mihir/pages/Portfolio.jsx";                     // Mihir - Investor Portfolio
 import BuyerCredit from "./mihir/pages/BuyerCredit.jsx";                 // Mihir - Buyer Credit Scoring
+import ErpIntegration from "./mihir/pages/ErpIntegration.jsx";           // Mihir - M2 ERP / Google Sheets Integration
 
 function PausedScreen({ reason, vaultPath }) {
   return (
@@ -253,6 +254,7 @@ function App() {
           />
           <Route path="/buyer/settlements" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><RepaymentSettlement /></BuyerLayout></ProtectedRoute>} />
           <Route path="/buyer/calendar" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><RepaymentCalendar /></BuyerLayout></ProtectedRoute>} />
+          <Route path="/buyer/erp" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><ErpIntegration /></BuyerLayout></ProtectedRoute>} />
 
           <Route path="*" element={<RoleHome />} />
         </Routes>

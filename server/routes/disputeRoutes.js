@@ -4,6 +4,7 @@
 const express = require('express');
 const pool = require('../db');
 const { reconcileInvoice } = require('../services/calendarSync');
+const erp = require('../services/erpSheets'); // Mihir - ERP / Sheets sync
 
 const router = express.Router();
 
@@ -58,6 +59,7 @@ router.post('/', async (req, res) => {
     await logEvent(client, dispute.rows[0].id, 'Dispute filed', filed_by, reason);
     await client.query('COMMIT');
     reconcileInvoice(invoice_id).catch((error) => console.error('Calendar dispute sync failed:', error.message));
+    erp.syncInvoiceToSheet(invoice_id).catch((e) => console.error('ERP dispute sync failed:', e.message));
 
     res.status(201).json(dispute.rows[0]);
   } catch (error) {
@@ -209,7 +211,19 @@ router.patch('/:id/resolve', async (req, res) => {
     // Voided: it stays frozen forever, which is what "voided" means.
     if (decision === 'released') {
       await client.query(
-        'UPDATE invoices SET frozen_at = NULL WHERE id::TEXT = $1',
+        `UPDATE invoices
+         SET frozen_at = NULL,
+             status = CASE WHEN status = 'Disputed' THEN 'Buyer Confirmed' ELSE status END,
+             current_stage = CASE WHEN current_stage = 'Disputed' THEN 'Buyer Confirmed' ELSE current_stage END,
+             updated_at = NOW()
+         WHERE id::TEXT = $1`,
+        [dispute.rows[0].invoice_id]
+      );
+    } else {
+      await client.query(
+        `UPDATE invoices
+         SET status = 'Voided', current_stage = 'Voided', updated_at = NOW()
+         WHERE id::TEXT = $1`,
         [dispute.rows[0].invoice_id]
       );
     }
@@ -217,6 +231,7 @@ router.patch('/:id/resolve', async (req, res) => {
     await logEvent(client, req.params.id, 'Dispute ' + newStatus.toLowerCase(), actor, resolution_note);
     await client.query('COMMIT');
     reconcileInvoice(dispute.rows[0].invoice_id).catch((error) => console.error('Calendar dispute sync failed:', error.message));
+    erp.syncInvoiceToSheet(dispute.rows[0].invoice_id).catch((e) => console.error('ERP dispute-resolve sync failed:', e.message));
 
     res.json(updated.rows[0]);
   } catch (error) {

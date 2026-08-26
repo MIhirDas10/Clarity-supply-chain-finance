@@ -35,6 +35,7 @@ const dynamicDiscountingRoutes = require('./routes/dynamicDiscountingRoutes'); /
 const marketplaceRoutes = require('./routes/marketplaceRoutes'); // Digonto (M3 Marketplace)
 const settlementRoutes = require('./routes/settlementRoutes'); // Ameet (M3 Repayment & Settlement)
 const calendarRoutes = require('./routes/calendarRoutes'); // Ameet (M4 Google Calendar Sync)
+const erpRoutes = require('./routes/erpRoutes'); // Mihir (M2 ERP / Google Sheets Integration)
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
@@ -58,6 +59,7 @@ app.use('/api/auth', authRoutes);
 // Google redirects here without the Clarity bearer token. OAuth state stored
 // in Supabase ties the callback back to the authenticated user who connected.
 app.get('/api/calendar/oauth/callback', calendarRoutes.oauthCallback);
+app.get('/api/erp/oauth/callback', erpRoutes.oauthCallback);
 
 // Every feature API uses the identity established by login. Authentication is
 // mounted after the public auth endpoints so signup and login remain public.
@@ -100,6 +102,9 @@ app.use('/api/portfolio', portfolioRoutes);
 
 // Mihir - Buyer Credit Scoring Engine
 app.use('/api/credit', creditRoutes);
+
+// Mihir - ERP / Accounting Integration (Google Sheets)
+app.use('/api/erp', erpRoutes);
 
 app.get('/', (req, res) => {
   res.json({ status: 'Clarity B2B API is running', docs: '/api-docs' });

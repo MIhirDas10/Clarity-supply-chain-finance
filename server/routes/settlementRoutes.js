@@ -19,6 +19,7 @@ const express = require('express');
 const pool = require('../db');
 const supabase = require('../config/supabase');
 const { reconcileInvoice } = require('../services/calendarSync');
+const erp = require('../services/erpSheets'); // Mihir - ERP / Sheets sync
 
 const router = express.Router();
 
@@ -286,6 +287,7 @@ router.post('/:invoiceId/repay', async (req, res) => {
     );
     await client.query('COMMIT');
     reconcileInvoice(invoice.id).catch((error) => console.error('Calendar repayment sync failed:', error.message));
+    erp.syncInvoiceToSheet(invoice.id).catch((e) => console.error('ERP settlement sync failed:', e.message));
 
     await publishSettlementNotification(invoice.buyer_name, `Repayment received for invoice ${invoice.invoice_number || invoice.id}. Settlement status: ${status}.`, invoice.id, 'repayment');
     await publishSettlementNotification(invoice.funder_id, `Settlement completed for invoice ${invoice.invoice_number || invoice.id}. Funder payout: ${funderPayout.toFixed(2)}.`, invoice.id, 'settlement');

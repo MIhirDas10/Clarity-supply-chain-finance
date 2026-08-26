@@ -13,7 +13,8 @@
   ],
   "tags": [
     { "name": "Pipeline", "description": "Invoice Status Pipeline operations" },
-    { "name": "Health", "description": "Supplier Health & Distress Analytics operations" }
+    { "name": "Health", "description": "Supplier Health & Distress Analytics operations" },
+    { "name": "ERP", "description": "Buyer accounts-payable ledger and Google Sheets sync" }
   ],
   "paths": {
     "/api/pipeline/invoices": {
@@ -492,6 +493,92 @@
             "description": "Dispute not found"
           }
         }
+      }
+    },
+    "/api/erp/status": {
+      "get": {
+        "tags": ["ERP"],
+        "summary": "Get ERP status",
+        "description": "Returns connection state, AP summary, aging buckets, and sync health.",
+        "responses": { "200": { "description": "ERP status returned" } }
+      }
+    },
+    "/api/erp/ledger": {
+      "get": {
+        "tags": ["ERP"],
+        "summary": "List AP ledger rows",
+        "description": "Returns platform-synced and manual accounts-payable rows for the buyer.",
+        "responses": { "200": { "description": "Ledger rows returned" } }
+      },
+      "post": {
+        "tags": ["ERP"],
+        "summary": "Create manual payable",
+        "description": "Adds an off-platform bill to the buyer's AP ledger.",
+        "responses": { "201": { "description": "Manual payable created" } }
+      }
+    },
+    "/api/erp/ledger/{invoiceId}": {
+      "patch": {
+        "tags": ["ERP"],
+        "summary": "Update a ledger row",
+        "description": "Updates a manual payable or accounting metadata on a platform-synced row.",
+        "parameters": [{ "name": "invoiceId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Ledger row updated" } }
+      },
+      "delete": {
+        "tags": ["ERP"],
+        "summary": "Delete manual payable",
+        "description": "Deletes a manual payable; platform rows remain source-managed.",
+        "parameters": [{ "name": "invoiceId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Manual payable deleted" } }
+      }
+    },
+    "/api/erp/reconcile": {
+      "post": {
+        "tags": ["ERP"],
+        "summary": "Backfill ERP ledger",
+        "description": "Re-syncs all current buyer invoices into the local ledger and Google Sheet when connected.",
+        "responses": { "200": { "description": "Reconciliation completed" } }
+      }
+    },
+    "/api/erp/retry-failed": {
+      "post": {
+        "tags": ["ERP"],
+        "summary": "Retry failed Google syncs",
+        "description": "Retries rows that failed or are waiting for Google Sheets sync.",
+        "responses": { "200": { "description": "Retry completed" } }
+      }
+    },
+    "/api/erp/reconciliation": {
+      "get": {
+        "tags": ["ERP"],
+        "summary": "Compare Clarity with Google Sheets",
+        "description": "Finds missing, extra, and mismatched AP rows between Clarity and the connected sheet.",
+        "responses": { "200": { "description": "Reconciliation issues returned" } }
+      }
+    },
+    "/api/erp/sheet-template": {
+      "post": {
+        "tags": ["ERP"],
+        "summary": "Create ERP Google Sheet",
+        "description": "Creates Accounts Payable, Suppliers, and Sync Log tabs and backfills current invoices.",
+        "responses": { "201": { "description": "Spreadsheet created" } }
+      }
+    },
+    "/api/erp/suppliers": {
+      "get": {
+        "tags": ["ERP"],
+        "summary": "Cross-reference suppliers",
+        "description": "Compares platform suppliers against the buyer's supplier master sheet, including fuzzy matches and health bands.",
+        "responses": { "200": { "description": "Supplier cross-reference returned" } }
+      }
+    },
+    "/api/erp/admin/summary": {
+      "get": {
+        "tags": ["ERP"],
+        "summary": "Admin ERP overview",
+        "description": "Admin-only overview of ERP adoption, outstanding AP, overdue counts, and sync failures by buyer.",
+        "responses": { "200": { "description": "Admin ERP summary returned" } }
       }
     }
   }

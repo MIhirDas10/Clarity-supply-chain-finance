@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { calculateInvoiceRisk } = require('../services/riskRatingEngine');
+const erp = require('../services/erpSheets'); // Mihir - ERP / Sheets sync
 
 // GET /api/confirmations/pending
 router.get('/pending', async (req, res) => {
@@ -127,6 +128,8 @@ router.post('/:invoiceId/confirm', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    // Real-time ERP mirror: push this confirmed payable to the buyer's ledger.
+    erp.syncInvoiceToSheet(invoiceId).catch((e) => console.error('ERP confirm sync failed:', e.message));
     res.json({ success: true, confirmationId, status: 'Buyer Confirmed' });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -183,6 +186,7 @@ router.post('/:invoiceId/dispute', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    erp.syncInvoiceToSheet(invoiceId).catch((e) => console.error('ERP confirmation-dispute sync failed:', e.message));
     res.json({ success: true, status: 'Disputed' });
   } catch (error) {
     await client.query('ROLLBACK');
