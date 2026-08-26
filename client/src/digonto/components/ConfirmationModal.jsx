@@ -1,23 +1,40 @@
-import { useState } from "react";
-import { CheckCircle2, XCircle, Shield, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { CheckCircle2, XCircle, Shield, X, Eraser } from "lucide-react";
+import SignatureCanvas from "react-signature-canvas";
 
 export default function ConfirmationModal({ invoice, onClose, onConfirmed }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const sigCanvas = useRef({});
 
   const acknowledgmentText =
     "I, the authorized representative of the buyer entity, hereby confirm that the goods/services described in this invoice have been received in full and are accurate. I acknowledge the legally binding payment obligation for the stated amount on or before the due date.";
 
+  const clearSignature = () => {
+    sigCanvas.current.clear();
+  };
+
   const handleConfirm = async () => {
+    if (sigCanvas.current.isEmpty()) {
+      setError("Please draw your signature to confirm.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/confirmations/${invoice.id}/confirm`, {
+      const signatureBase64 = sigCanvas.current.getCanvas().toDataURL("image/png");
+
+      const res = await fetch(`http://localhost:5001/api/confirmations/${invoice.id}/confirm`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('clarity_token')}`
+        },
         body: JSON.stringify({
           buyer_name: invoice.buyer_name,
           acknowledgment_text: acknowledgmentText,
+          signatureBase64
         }),
       });
       const data = await res.json();
@@ -26,8 +43,9 @@ export default function ConfirmationModal({ invoice, onClose, onConfirmed }) {
         return;
       }
       onConfirmed(data);
-    } catch {
-      setError("Network error — please try again");
+    } catch (err) {
+      console.error("Confirmation error:", err);
+      setError("Error: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -96,7 +114,7 @@ export default function ConfirmationModal({ invoice, onClose, onConfirmed }) {
         </div>
 
         {/* Legal Acknowledgment */}
-        <div className="px-6 pb-4">
+        <div className="px-6 pb-2">
           <div className="rounded-xl p-4" style={{ backgroundColor: "#FFFBEB", border: "1px solid #FDE68A" }}>
             <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: "#92400E" }}>
               ⚖️ Legal Acknowledgment
@@ -104,6 +122,23 @@ export default function ConfirmationModal({ invoice, onClose, onConfirmed }) {
             <p className="text-[12px] leading-relaxed" style={{ color: "#78350F" }}>
               {acknowledgmentText}
             </p>
+          </div>
+        </div>
+
+        {/* Signature Pad */}
+        <div className="px-6 pb-4">
+          <div className="flex justify-between items-end mb-1">
+            <p className="text-[12px] font-semibold text-gray-700">Digital Signature</p>
+            <button onClick={clearSignature} className="flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-gray-700 cursor-pointer">
+              <Eraser size={12} /> Clear
+            </button>
+          </div>
+          <div className="border rounded-lg overflow-hidden bg-white" style={{ borderColor: "var(--border)" }}>
+            <SignatureCanvas 
+              ref={sigCanvas}
+              penColor="black"
+              canvasProps={{className: "w-full h-32 cursor-crosshair"}} 
+            />
           </div>
         </div>
 

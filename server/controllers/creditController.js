@@ -1,4 +1,5 @@
 const pool = require("../db");
+const https = require("https");
 
 // Default scoring weights used when credit_config is not available.
 const DEFAULT_WEIGHTS = {
@@ -121,14 +122,18 @@ async function loadWeights() {
   );
 }
 
+
+
 // Loads the active score-to-price policy.
 async function loadPricingPolicy() {
-  return loadConfig(
+  const policy = await loadConfig(
     "SELECT base_rate, platform_margin, lgd, pd_floor, pd_ceiling FROM pricing_policy WHERE id = 1",
     PRICING_COLUMNS,
     DEFAULT_PRICING,
     "Could not read pricing_policy, using defaults:",
   );
+
+  return policy;
 }
 
 // Higher scores map to lower annual probability of default.

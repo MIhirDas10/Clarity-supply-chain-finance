@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Upload, Loader2, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 
 const DISCOUNT_RATE_30D = 0.025;
@@ -15,6 +15,7 @@ const initialForm = {
   buyer_name: "",
   invoice_number: "",
   amount: "",
+  currency: "BDT",
   due_date: "",
   file_url: "",
 };
@@ -30,7 +31,33 @@ export default function InvoiceForm({ onSuccess }) {
     if (feedback) setFeedback(null);
   };
 
-  const fullAmount = parseFloat(form.amount) || 0;
+  const [exchangeRate, setExchangeRate] = useState(1);
+  const [fetchingRate, setFetchingRate] = useState(false);
+
+  useEffect(() => {
+    if (form.currency === 'BDT') {
+      setExchangeRate(1);
+      return;
+    }
+    const fetchRate = async () => {
+      setFetchingRate(true);
+      try {
+        const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${form.currency}`);
+        const data = await res.json();
+        if (data && data.rates && data.rates.BDT) {
+          setExchangeRate(data.rates.BDT);
+        }
+      } catch (err) {
+        console.error("Failed to fetch exchange rate", err);
+      } finally {
+        setFetchingRate(false);
+      }
+    };
+    fetchRate();
+  }, [form.currency]);
+
+  const originalAmount = parseFloat(form.amount) || 0;
+  const fullAmount = originalAmount * exchangeRate;
 
   const { discountedAmount, discountPercent } = useMemo(() => {
     const pct = (DISCOUNT_RATE_30D / MAX_DISCOUNT_DAYS) * (MAX_DISCOUNT_DAYS - discountDays);
@@ -54,7 +81,10 @@ export default function InvoiceForm({ onSuccess }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          invoice_amount: form.amount,
+          invoice_amount: fullAmount,
+          original_currency: form.currency,
+          original_amount: originalAmount,
+          exchange_rate: exchangeRate,
           discount_days: discountDays,
           discounted_amount: discountedAmount,
         }),
@@ -170,24 +200,42 @@ export default function InvoiceForm({ onSuccess }) {
             />
           </div>
 
-          {/* Amount */}
+          {/* Amount and Currency */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5"
               style={{ color: "var(--text-secondary)" }}
             >
-              Amount (৳)
+              Amount
             </label>
-            <input
-              type="number"
-              placeholder="e.g. 2500000"
-              required
-              min="0"
-              step="0.01"
-              value={form.amount}
-              onChange={(e) => handleChange("amount", e.target.value)}
-              className="w-full px-3.5 py-2.5 text-[13px] rounded-lg border transition-all duration-200"
-              style={inputStyle}
-            />
+            <div className="flex gap-2">
+              <select
+                value={form.currency}
+                onChange={(e) => handleChange("currency", e.target.value)}
+                className="px-3.5 py-2.5 text-[13px] rounded-lg border transition-all duration-200"
+                style={{ ...inputStyle, width: '90px' }}
+              >
+                <option value="BDT">BDT ৳</option>
+                <option value="USD">USD $</option>
+                <option value="EUR">EUR €</option>
+                <option value="GBP">GBP £</option>
+              </select>
+              <input
+                type="number"
+                placeholder="e.g. 2500000"
+                required
+                min="0"
+                step="0.01"
+                value={form.amount}
+                onChange={(e) => handleChange("amount", e.target.value)}
+                className="flex-1 px-3.5 py-2.5 text-[13px] rounded-lg border transition-all duration-200"
+                style={inputStyle}
+              />
+            </div>
+            {form.currency !== 'BDT' && (
+              <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>
+                {fetchingRate ? "Fetching live rate..." : `Live Rate: 1 ${form.currency} = ${exchangeRate.toFixed(2)} BDT`}
+              </p>
+            )}
           </div>
 
           {/* Due Date */}

@@ -10,8 +10,10 @@ const mockFunders = [
 const FunderMarketplace = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFunder, setSelectedFunder] = useState(mockFunders[0]);
+  const [funders, setFunders] = useState([]);
+  const [selectedFunder, setSelectedFunder] = useState(null);
   const [filterRating, setFilterRating] = useState('All');
+  const [kybSubmitted, setKybSubmitted] = useState(true);
   
   // Modal state
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -31,6 +33,42 @@ const FunderMarketplace = () => {
   useEffect(() => {
     fetchInvoices();
   }, [filterRating]);
+
+  useEffect(() => {
+    // Fetch dynamic funders (Banks in Bangladesh)
+    const fetchFunders = async () => {
+      try {
+        const response = await fetch('/api/auth/banks');
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setFunders(data);
+          setSelectedFunder(data[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching funders:', error);
+      }
+    };
+
+    // Check KYB status
+    const checkKybStatus = async () => {
+      try {
+        const token = localStorage.getItem('clarity_token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await fetch('/api/documents', { headers });
+        if (response.ok) {
+          const docs = await response.json();
+          if (docs.length === 0 || !docs.some(d => d.status === 'Approved')) {
+            setKybSubmitted(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking KYB status:', error);
+      }
+    };
+
+    fetchFunders();
+    checkKybStatus();
+  }, []);
 
   const handleFundSuccess = (invoiceId) => {
     // Remove funded invoice from the list
@@ -53,20 +91,34 @@ const FunderMarketplace = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-600">Acting as:</span>
-            <select 
-              value={selectedFunder.id}
-              onChange={(e) => {
-                const f = mockFunders.find(x => x.id === e.target.value);
-                if (f) setSelectedFunder(f);
-              }}
-              className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            >
-              {mockFunders.map(f => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
+            {selectedFunder && (
+              <select 
+                value={selectedFunder.id}
+                onChange={(e) => {
+                  const f = funders.find(x => x.id === e.target.value);
+                  if (f) setSelectedFunder(f);
+                }}
+                className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                {funders.map(f => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
+
+        {!kybSubmitted && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm flex flex-col md:flex-row items-center justify-between">
+            <div className="mb-2 md:mb-0">
+              <h3 className="font-bold text-red-800">Action Required: KYB Verification Incomplete</h3>
+              <p className="text-red-700 text-sm">You must upload your KYB documents in the Document Vault and wait for Admin approval before you can fund invoices.</p>
+            </div>
+            <a href="/funder/vault" className="px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition">
+              Go to Document Vault
+            </a>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
@@ -112,7 +164,9 @@ const FunderMarketplace = () => {
                   </div>
                   <button 
                     onClick={() => setSelectedInvoice(inv)}
-                    className="w-full py-2 bg-slate-900 text-white rounded hover:bg-slate-800 transition font-medium"
+                    disabled={!kybSubmitted}
+                    className="w-full py-2 bg-slate-900 text-white rounded hover:bg-slate-800 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!kybSubmitted ? "Please submit KYB documents first" : "Fund this invoice"}
                   >
                     Fund Invoice
                   </button>
@@ -170,7 +224,9 @@ const FunderMarketplace = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button 
                           onClick={() => setSelectedInvoice(inv)}
-                          className="text-slate-600 hover:text-slate-900 font-semibold border border-slate-300 rounded px-3 py-1 hover:bg-slate-100"
+                          disabled={!kybSubmitted}
+                          title={!kybSubmitted ? "Please submit KYB documents first" : "Fund this invoice"}
+                          className="text-slate-600 hover:text-slate-900 font-semibold border border-slate-300 rounded px-3 py-1 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Fund
                         </button>

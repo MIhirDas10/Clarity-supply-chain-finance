@@ -26,6 +26,36 @@ function Signup() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedLogo, setSelectedLogo] = useState(null);
+
+  const handleBusinessNameChange = async (e) => {
+    const value = e.target.value;
+    setBusinessName(value);
+    setSelectedLogo(null);
+    
+    if (value.length > 2) {
+      try {
+        const res = await fetch(`https://autocomplete.clearbit.com/v1/companies/suggest?query=${encodeURIComponent(value)}`);
+        const data = await res.json();
+        setSuggestions(data);
+        setShowSuggestions(true);
+      } catch (err) {
+        console.error("Failed to fetch company suggestions", err);
+      }
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectCompany = (company) => {
+    setBusinessName(company.name);
+    setSelectedLogo(company.logo);
+    setShowSuggestions(false);
+  };
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
@@ -91,14 +121,34 @@ function Signup() {
             </div>
           </div>
 
-          <div className="auth-field">
+          <div className="auth-field" style={{ position: 'relative' }}>
             <label>Business name</label>
-            <input
-              required
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g. Rahman Textiles Ltd"
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              {selectedLogo && (
+                <img src={selectedLogo} alt="Logo" style={{ width: 24, height: 24, position: 'absolute', left: 10, borderRadius: 4 }} />
+              )}
+              <input
+                required
+                value={businessName}
+                onChange={handleBusinessNameChange}
+                onFocus={() => businessName.length > 2 && setShowSuggestions(true)}
+                placeholder="e.g. Rahman Textiles Ltd"
+                style={selectedLogo ? { paddingLeft: 42, width: '100%' } : { width: '100%' }}
+              />
+            </div>
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #ccc', borderRadius: 4, zIndex: 10, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+                {suggestions.map((company) => (
+                  <div key={company.domain} onClick={() => selectCompany(company)} style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderBottom: '1px solid #eee', color: '#334155' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    {company.logo && <img src={company.logo} alt="" style={{ width: 20, height: 20, borderRadius: 2 }} />}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{company.name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{company.domain}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="auth-field">

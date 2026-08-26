@@ -17,7 +17,10 @@ export default function DisputeModal({ invoice, onClose, onDisputed }) {
     try {
       const res = await fetch(`/api/confirmations/${invoice.id}/dispute`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('clarity_token')}`
+        },
         body: JSON.stringify({
           buyer_name: invoice.buyer_name,
           reason: reason.trim(),

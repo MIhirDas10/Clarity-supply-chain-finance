@@ -3,16 +3,16 @@ const router = express.Router();
 const pool = require('../db');
 const { calculateInvoiceRisk } = require('../services/riskRatingEngine');
 
-// GET /api/confirmations/pending?buyer=X
+// GET /api/confirmations/pending
 router.get('/pending', async (req, res) => {
-  const { buyer } = req.query;
   try {
     let query = 'SELECT * FROM invoices WHERE status = $1';
     const params = ['Submitted'];
     
-    if (buyer) {
+    // If the user is a buyer, only return their invoices. Admin sees all.
+    if (req.user && req.user.role === 'buyer') {
       query += ' AND buyer_name = $2';
-      params.push(buyer);
+      params.push(req.user.business_name);
     }
     
     const result = await pool.query(query, params);
@@ -23,16 +23,16 @@ router.get('/pending', async (req, res) => {
   }
 });
 
-// GET /api/confirmations/history?buyer=X
+// GET /api/confirmations/history
 router.get('/history', async (req, res) => {
-  const { buyer } = req.query;
   try {
     let query = 'SELECT * FROM invoices WHERE status IN ($1, $2)';
     const params = ['Buyer Confirmed', 'Disputed'];
     
-    if (buyer) {
+    // If the user is a buyer, only return their invoices.
+    if (req.user && req.user.role === 'buyer') {
       query += ' AND buyer_name = $3';
-      params.push(buyer);
+      params.push(req.user.business_name);
     }
     
     // Order by the most recently updated
@@ -49,10 +49,10 @@ router.get('/history', async (req, res) => {
 // POST /api/confirmations/:invoiceId/confirm
 router.post('/:invoiceId/confirm', async (req, res) => {
   const { invoiceId } = req.params;
-  const { buyer_name, acknowledgment_text } = req.body;
+  const { buyer_name, acknowledgment_text, signatureBase64 } = req.body;
   
-  if (!buyer_name || !acknowledgment_text) {
-    return res.status(400).json({ message: 'Buyer name and acknowledgment text are required.' });
+  if (!buyer_name || !acknowledgment_text || !signatureBase64) {
+    return res.status(400).json({ message: 'Buyer name, acknowledgment text, and signature are required.' });
   }
 
   const client = await pool.connect();
@@ -73,10 +73,25 @@ router.post('/:invoiceId/confirm', async (req, res) => {
     }
 
     // 2. Insert into invoice_confirmations
+    // We upload the base64 signature to Cloudinary
+    let signature_url = null;
+    try {
+      const cloudinary = require('cloudinary').v2;
+      const uploaded = await cloudinary.uploader.upload(signatureBase64, {
+        folder: 'clarity/signatures',
+        resource_type: 'image'
+      });
+      signature_url = uploaded.secure_url;
+    } catch (uploadErr) {
+      console.error('Signature upload failed:', uploadErr);
+      await client.query('ROLLBACK');
+      return res.status(500).json({ message: 'Failed to upload digital signature.' });
+    }
+
     const confirmRes = await client.query(
-      `INSERT INTO invoice_confirmations (invoice_id, buyer_name, acknowledgment_text) 
-       VALUES ($1, $2, $3) RETURNING id`,
-      [invoiceId, buyer_name, acknowledgment_text]
+      `INSERT INTO invoice_confirmations (invoice_id, buyer_name, acknowledgment_text, signature_url) 
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [invoiceId, buyer_name, acknowledgment_text, signature_url]
     );
     const confirmationId = confirmRes.rows[0].id;
 
@@ -116,7 +131,7 @@ router.post('/:invoiceId/confirm', async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error confirming invoice:', error);
-    // Handle unique constraint violation
+    require('fs').appendFileSync('error.log', error.stack + '\n');
     if (error.code === '23505') {
       res.status(400).json({ message: 'This invoice has already been confirmed.' });
     } else {

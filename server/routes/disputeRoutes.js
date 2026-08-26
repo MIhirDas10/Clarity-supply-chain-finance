@@ -72,12 +72,17 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const status = req.query.status;
-    const result = await pool.query(
-      `SELECT * FROM disputes
-       WHERE ($1::TEXT IS NULL OR status = $1)
-       ORDER BY created_at DESC`,
-      [status || null]
-    );
+    let query = `SELECT * FROM disputes WHERE ($1::TEXT IS NULL OR status = $1)`;
+    const params = [status || null];
+
+    if (req.user.role === 'buyer') {
+      query += ` AND filed_by = $2`;
+      params.push(req.user.business_name);
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Could not load disputes' });

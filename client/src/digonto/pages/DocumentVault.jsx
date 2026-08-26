@@ -5,6 +5,7 @@ import {
   Trash2, 
   Edit3, 
   Eye, 
+  Download,
   AlertCircle 
 } from 'lucide-react';
 
@@ -222,7 +223,16 @@ const DocumentVault = () => {
                           <FileText size={24} />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-slate-900">{doc.doc_type}</h3>
+                          <h3 className="font-semibold text-slate-900 flex items-center">
+                            {doc.doc_type}
+                            <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              doc.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                              doc.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {doc.status || 'Pending'}
+                            </span>
+                          </h3>
                           <p className="text-sm text-slate-500 font-medium truncate max-w-xs">{doc.file_name || 'Document'}</p>
                           {doc.notes && <p className="text-sm text-slate-600 mt-1">{doc.notes}</p>}
                           <p className="text-xs text-slate-400 mt-2">
@@ -232,13 +242,14 @@ const DocumentVault = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <a 
-                          href={doc.file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
+                          href={doc.file_url?.includes('cloudinary.com') 
+                            ? doc.file_url.replace('/upload/', '/upload/fl_attachment/')
+                            : doc.file_url} 
+                          download={doc.file_name || 'document'}
                           className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition"
-                          title="View"
+                          title="Download"
                         >
-                          <Eye size={18} />
+                          <Download size={18} />
                         </a>
                         <button 
                           onClick={() => setEditingDoc(doc)}

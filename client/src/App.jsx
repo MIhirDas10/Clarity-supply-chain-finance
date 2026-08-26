@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
+import { LogOut, ShieldAlert } from "lucide-react";
 import Sidebar from "./components/Sidebar.jsx";
 import BuyerSidebar from "./components/BuyerSidebar.jsx";
 import FunderSidebar from "./components/FunderSidebar.jsx";
@@ -34,14 +34,54 @@ import Notifications from "./mihir/pages/Notifications.jsx";             // Mihi
 import Portfolio from "./mihir/pages/Portfolio.jsx";                     // Mihir - Investor Portfolio
 import BuyerCredit from "./mihir/pages/BuyerCredit.jsx";                 // Mihir - Buyer Credit Scoring
 
+function PausedScreen({ reason, vaultPath }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 min-h-[calc(100vh-64px)] p-6 w-full">
+      <div className="bg-white p-8 rounded-xl shadow-sm border border-red-100 max-w-md w-full text-center">
+        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <ShieldAlert size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Account Paused</h2>
+        <p className="text-slate-600 mb-6">{reason || 'Your account has been temporarily paused by an administrator.'}</p>
+        {vaultPath && (
+          <Link to={vaultPath} className="inline-flex items-center justify-center px-6 py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition">
+            Go to Document Vault
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RoleLayoutInner({ children, vaultPath }) {
+  const { user } = useAuth();
+  const location = useLocation();
+  const isVault = location.pathname.includes('/vault');
+  
+  if (user?.is_paused && !isVault) {
+    return (
+      <div className="flex-1 ml-[250px] flex flex-col relative">
+        <Header />
+        <main className="flex-1 overflow-x-hidden relative flex">
+          <PausedScreen reason={user.pause_reason} vaultPath={vaultPath} />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 ml-[250px] flex flex-col relative">
+      <Header />
+      <main className="flex-1 overflow-x-hidden relative">{children}</main>
+    </div>
+  );
+}
+
 function SupplierLayout({ children }) {
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
       <Sidebar />
-      <div className="flex-1 ml-[250px] flex flex-col relative">
-        <Header />
-        <main className="flex-1 overflow-x-hidden relative">{children}</main>
-      </div>
+      <RoleLayoutInner vaultPath="/vault">{children}</RoleLayoutInner>
     </div>
   );
 }
@@ -50,10 +90,7 @@ function BuyerLayout({ children }) {
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
       <BuyerSidebar />
-      <div className="flex-1 ml-[250px] flex flex-col relative">
-        <Header />
-        <main className="flex-1 overflow-x-hidden relative">{children}</main>
-      </div>
+      <RoleLayoutInner>{children}</RoleLayoutInner>
     </div>
   );
 }
@@ -62,10 +99,7 @@ function FunderLayout({ children }) {
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
       <FunderSidebar />
-      <div className="flex-1 ml-[250px] flex flex-col relative">
-        <Header />
-        <main className="flex-1 overflow-x-hidden relative">{children}</main>
-      </div>
+      <RoleLayoutInner vaultPath="/funder/vault">{children}</RoleLayoutInner>
     </div>
   );
 }

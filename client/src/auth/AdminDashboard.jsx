@@ -63,6 +63,38 @@ function AdminDashboard() {
     }
   }
 
+  async function togglePause(user, reason = null) {
+    const action = user.is_paused ? 'unpause' : 'pause';
+    const body = reason ? JSON.stringify({ reason }) : undefined;
+    const headers = reason ? { 'Content-Type': 'application/json' } : undefined;
+    
+    const res = await authedFetch(`/api/auth/${user.id}/${action}`, {
+      method: 'PATCH',
+      headers,
+      body,
+    });
+    
+    if (res.ok) {
+      load();
+    }
+  }
+
+  async function updateDocStatus(docId, newStatus) {
+    try {
+      const res = await authedFetch(`/api/documents/${docId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        const updatedDoc = await res.json();
+        setUserDocs(docs => docs.map(d => d.id === docId ? updatedDoc : d));
+      }
+    } catch (err) {
+      console.error('Failed to update doc status:', err);
+    }
+  }
+
   function closeDocs() {
     setViewingDocsUserId(null);
     setViewingDocsUser(null);
@@ -129,7 +161,7 @@ function AdminDashboard() {
                   <span className="text-slate-400">—</span>
                 )}
               </td>
-              <td>
+              <td style={{ whiteSpace: 'nowrap' }}>
                 <button className="auth-approve-btn" onClick={() => decide(u.id, 'approve')}>
                   Approve
                 </button>
@@ -154,6 +186,7 @@ function AdminDashboard() {
             <th>Email</th>
             <th>Documents</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -176,6 +209,21 @@ function AdminDashboard() {
               </td>
               <td>
                 <span className={'auth-chip ' + u.status}>{u.status}</span>
+                {u.is_paused && <span style={{ marginLeft: 4, background: '#fee2e2', color: '#991b1b' }} className="auth-chip">Paused</span>}
+              </td>
+              <td>
+                {u.status === 'Approved' && (
+                  <button 
+                    onClick={() => togglePause(u)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition ${
+                      u.is_paused 
+                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' 
+                        : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
+                    }`}
+                  >
+                    {u.is_paused ? 'Unpause' : 'Pause'}
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -190,11 +238,22 @@ function AdminDashboard() {
             <h2 className="text-lg font-bold text-slate-900">
               {viewingDocsUser ? `Docs: ${viewingDocsUser.business_name}` : 'KYB Documents'}
             </h2>
-            {viewingDocsUserId && (
-              <button onClick={closeDocs} className="text-slate-500 hover:text-slate-800 font-medium text-sm">
-                Clear
-              </button>
-            )}
+            <div className="flex gap-2 items-center">
+              {viewingDocsUser && !viewingDocsUser.is_paused && viewingDocsUser.status === 'Approved' && (
+                <button 
+                  onClick={() => togglePause(viewingDocsUser, 'Admin requested additional KYB documents.')}
+                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-xs font-medium transition"
+                  title="Pause this user and request more documents"
+                >
+                  Request Docs
+                </button>
+              )}
+              {viewingDocsUserId && (
+                <button onClick={closeDocs} className="text-slate-500 hover:text-slate-800 font-medium text-sm ml-2">
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
           
           {!viewingDocsUserId ? (
@@ -205,26 +264,55 @@ function AdminDashboard() {
             <p className="text-slate-500 p-4 text-center text-sm">No documents found for this user.</p>
           ) : (
             <div className="space-y-4">
-              {userDocs.map(doc => (
-                <div key={doc.id} className="p-4 border border-slate-200 rounded-lg flex justify-between items-start">
+              {userDocs.map(doc => {
+                const downloadUrl = doc.file_url?.includes('cloudinary.com') 
+                  ? doc.file_url.replace('/upload/', '/upload/fl_attachment/')
+                  : doc.file_url;
+                  
+                return (
+                <div key={doc.id} className="p-4 border border-slate-200 rounded-lg flex flex-col gap-3">
                   <div>
-                    <h3 className="font-semibold text-slate-900 text-sm">{doc.doc_type}</h3>
-                    <p className="text-xs text-slate-500">{doc.file_name || 'Document'}</p>
+                    <h3 className="font-semibold text-slate-900 text-sm flex items-center">
+                      {doc.doc_type}
+                      <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        doc.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                        doc.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {doc.status || 'Pending'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 truncate">{doc.file_name || 'Document'}</p>
                     {doc.notes && <p className="text-xs text-slate-600 mt-1">{doc.notes}</p>}
                     <p className="text-[10px] text-slate-400 mt-2">
                       Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <a 
-                    href={doc.file_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-medium transition whitespace-nowrap ml-2"
-                  >
-                    View
-                  </a>
+                  <div className="flex justify-between items-center mt-1 pt-3 border-t border-slate-100">
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => updateDocStatus(doc.id, 'Approved')}
+                        className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded text-xs font-medium transition"
+                      >
+                        Approve
+                      </button>
+                      <button 
+                        onClick={() => updateDocStatus(doc.id, 'Rejected')}
+                        className="px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded text-xs font-medium transition"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                    <a 
+                      href={downloadUrl} 
+                      download={doc.file_name || 'document'}
+                      className="px-4 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-medium transition whitespace-nowrap"
+                    >
+                      Download
+                    </a>
+                  </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>

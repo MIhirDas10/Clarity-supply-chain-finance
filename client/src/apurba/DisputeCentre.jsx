@@ -7,8 +7,10 @@
 import { useEffect, useState } from 'react';
 import { ShieldAlert, Snowflake } from 'lucide-react';
 import { API_URL } from './api.js';
+import { useAuth } from '../auth/AuthContext.jsx';
 
 function DisputeCentre() {
+  const { user } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [disputes, setDisputes] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -16,33 +18,39 @@ function DisputeCentre() {
   const [refresh, setRefresh] = useState(0);
 
   const [form, setForm] = useState({
-    invoice_id: '', filed_by: 'Apex Footwear Ltd', reason: '', notes: '',
+    invoice_id: '', filed_by: user?.business_name || '', reason: '', notes: '',
   });
   const [evidence, setEvidence] = useState({ note: '' });
   const [document, setDocument] = useState(null);   // the file the buyer chose
   const [uploading, setUploading] = useState(false);
 
+  // Helper for auth headers
+  const getHeaders = (extraHeaders = {}) => ({
+    ...extraHeaders,
+    'Authorization': 'Bearer ' + localStorage.getItem('clarity_token')
+  });
+
   // Reload the invoice list and the dispute list together.
   useEffect(() => {
-    fetch(API_URL + '/api/invoices')
+    fetch(API_URL + '/api/invoices', { headers: getHeaders() })
       .then((r) => r.json())
       .then((list) => {
-        setInvoices(list);
-        if (list.length > 0 && !form.invoice_id) {
+        setInvoices(list || []);
+        if (list && list.length > 0 && !form.invoice_id) {
           setForm((f) => ({ ...f, invoice_id: list[0].id }));
         }
       })
       .catch(() => setMessage({ bad: true, text: 'Could not reach the server on port 1012.' }));
 
-    fetch(API_URL + '/api/disputes')
+    fetch(API_URL + '/api/disputes', { headers: getHeaders() })
       .then((r) => r.json())
-      .then(setDisputes)
+      .then((list) => setDisputes(list || []))
       .catch(() => {});
   }, [refresh]);
 
   // Load one dispute with its documents and history.
   function open(id) {
-    fetch(API_URL + '/api/disputes/' + id)
+    fetch(API_URL + '/api/disputes/' + id, { headers: getHeaders() })
       .then((r) => r.json())
       .then(setSelected);
   }
@@ -51,8 +59,8 @@ function DisputeCentre() {
     event.preventDefault();
     const res = await fetch(API_URL + '/api/disputes', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      headers: getHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ...form, filed_by: user?.business_name || form.filed_by }),
     });
     const data = await res.json();
 
@@ -89,7 +97,7 @@ function DisputeCentre() {
     try {
       const stored = await fetch(API_URL + '/api/invoices/upload-file', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           file: await readAsDataUri(document),
           file_name: document.name,
@@ -103,9 +111,9 @@ function DisputeCentre() {
 
       const res = await fetch(API_URL + '/api/disputes/' + selected.id + '/evidence', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          uploaded_by: selected.filed_by,
+          uploaded_by: user?.business_name || selected.filed_by,
           file_url: storedData.file_url,
           note: evidence.note || document.name,
         }),
@@ -129,11 +137,11 @@ function DisputeCentre() {
   async function resolve(decision) {
     const res = await fetch(API_URL + '/api/disputes/' + selected.id + '/resolve', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         decision: decision,
         resolution_note: decision === 'released' ? 'Evidence accepted' : 'Invoice cancelled',
-        actor: 'admin@clarity.io',
+        actor: user?.email || 'admin@clarity.io',
       }),
     });
     const data = await res.json();
@@ -197,8 +205,8 @@ function DisputeCentre() {
             <div className="field">
               <label>Filed by</label>
               <input
-                value={form.filed_by}
-                onChange={(e) => setForm({ ...form, filed_by: e.target.value })}
+                value={user?.business_name || form.filed_by}
+                disabled
               />
             </div>
 

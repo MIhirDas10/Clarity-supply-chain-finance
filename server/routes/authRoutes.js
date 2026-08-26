@@ -59,9 +59,9 @@ router.post('/signup', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const saved = await pool.query(
-      `INSERT INTO users (role, business_name, email, phone, password_hash, status)
-       VALUES ($1, $2, $3, $4, $5, 'Pending')
-       RETURNING id, role, business_name, email, status, created_at`,
+      `INSERT INTO users (role, business_name, email, phone, password_hash, status, is_paused)
+       VALUES ($1, $2, $3, $4, $5, 'Pending', false)
+       RETURNING id, role, business_name, email, status, created_at, is_paused, pause_reason`,
       [role, business_name, normalisedEmail, phone || null, passwordHash]
     );
 
@@ -111,7 +111,7 @@ router.post('/login', async (req, res) => {
     const token = issueToken(user);
     res.json({
       token,
-      user: { id: user.id, role: user.role, business_name: user.business_name, email: user.email },
+      user: { id: user.id, role: user.role, business_name: user.business_name, email: user.email, is_paused: user.is_paused, pause_reason: user.pause_reason },
     });
   } catch (error) {
     res.status(500).json({ message: 'Could not log in' });
@@ -123,7 +123,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, role, business_name, email, status FROM users WHERE id = $1',
+      'SELECT id, role, business_name, email, status, is_paused, pause_reason FROM users WHERE id = $1',
       [req.user.id]
     );
     if (result.rowCount === 0) {
@@ -139,7 +139,7 @@ router.get('/me', requireAuth, async (req, res) => {
 router.get('/pending', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, role, business_name, email, phone, created_at
+      `SELECT id, role, business_name, email, phone, created_at, is_paused, pause_reason
        FROM users WHERE status = 'Pending' ORDER BY created_at ASC`
     );
     res.json(result.rows);
@@ -152,13 +152,64 @@ router.get('/pending', requireAuth, requireRole('admin'), async (req, res) => {
 router.get('/users', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, role, business_name, email, phone, status, created_at, approved_at
+      `SELECT id, role, business_name, email, phone, status, created_at, approved_at, is_paused, pause_reason
        FROM users ORDER BY created_at DESC`
     );
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Could not load the user list' });
   }
+});
+
+// GET /api/auth/buyers - fetch all buyers dynamically
+router.get('/buyers', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT business_name FROM users WHERE role = 'buyer' AND status = 'Approved' ORDER BY business_name ASC`
+    );
+    res.json(result.rows.map(row => row.business_name));
+  } catch (error) {
+    res.status(500).json({ message: 'Could not load the buyers list' });
+  }
+});
+
+// GET /api/auth/banks - fetch comprehensive list of banks in Bangladesh
+router.get('/banks', (req, res) => {
+  const banks = [
+    { id: 'bb', name: 'Bangladesh Bank' },
+    { id: 'sonali', name: 'Sonali Bank PLC' },
+    { id: 'janata', name: 'Janata Bank PLC' },
+    { id: 'agrani', name: 'Agrani Bank PLC' },
+    { id: 'rupali', name: 'Rupali Bank PLC' },
+    { id: 'basic', name: 'BASIC Bank Limited' },
+    { id: 'brac', name: 'BRAC Bank PLC' },
+    { id: 'city', name: 'The City Bank PLC' },
+    { id: 'ebl', name: 'Eastern Bank PLC' },
+    { id: 'prime', name: 'Prime Bank PLC' },
+    { id: 'dutch', name: 'Dutch-Bangla Bank PLC' },
+    { id: 'islami', name: 'Islami Bank Bangladesh PLC' },
+    { id: 'scb', name: 'Standard Chartered Bank' },
+    { id: 'hsbc', name: 'HSBC Bangladesh' },
+    { id: 'ab', name: 'AB Bank PLC' },
+    { id: 'ific', name: 'IFIC Bank PLC' },
+    { id: 'pubali', name: 'Pubali Bank PLC' },
+    { id: 'uttara', name: 'Uttara Bank PLC' },
+    { id: 'mtb', name: 'Mutual Trust Bank PLC' },
+    { id: 'dhaka', name: 'Dhaka Bank PLC' },
+    { id: 'bankasia', name: 'Bank Asia PLC' },
+    { id: 'trust', name: 'Trust Bank Limited' },
+    { id: 'ncc', name: 'NCC Bank PLC' },
+    { id: 'ucb', name: 'United Commercial Bank PLC' },
+    { id: 'nrb', name: 'NRB Bank Limited' },
+    { id: 'midland', name: 'Midland Bank Limited' },
+    { id: 'jamuna', name: 'Jamuna Bank PLC' },
+    { id: 'exim', name: 'EXIM Bank PLC' },
+    { id: 'sib', name: 'Social Islami Bank PLC' },
+    { id: 'shahjalal', name: 'Shahjalal Islami Bank PLC' }
+  ];
+  // Sort alphabetically by name
+  banks.sort((a, b) => a.name.localeCompare(b.name));
+  res.json(banks);
 });
 
 // 6. PATCH /api/auth/:id/approve
@@ -194,6 +245,43 @@ router.patch('/:id/reject', requireAuth, requireRole('admin'), async (req, res) 
     res.json(updated.rows[0]);
   } catch (error) {
     res.status(500).json({ message: 'Could not reject that account' });
+  }
+});
+
+// 8. PATCH /api/auth/:id/pause
+router.patch('/:id/pause', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const updated = await pool.query(
+      `UPDATE users SET is_paused = true, pause_reason = $1
+       WHERE id = $2
+       RETURNING id, business_name, email, role, status, is_paused, pause_reason`,
+      [reason || null, req.params.id]
+    );
+    if (updated.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(updated.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Could not pause that account' });
+  }
+});
+
+// 9. PATCH /api/auth/:id/unpause
+router.patch('/:id/unpause', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const updated = await pool.query(
+      `UPDATE users SET is_paused = false, pause_reason = null
+       WHERE id = $1
+       RETURNING id, business_name, email, role, status, is_paused, pause_reason`,
+      [req.params.id]
+    );
+    if (updated.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(updated.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Could not unpause that account' });
   }
 });
 

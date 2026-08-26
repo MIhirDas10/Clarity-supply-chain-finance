@@ -108,6 +108,32 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// PATCH /api/documents/:id/status - Update document status (admin only)
+router.patch('/:id/status', requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  
+  if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid status' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE supplier_documents SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating document status:', error);
+    res.status(500).json({ message: 'Failed to update document status.' });
+  }
+});
+
 // GET /api/documents/user/:userId - Fetch all documents for a specific user (admin only)
 router.get('/user/:userId', requireRole('admin'), async (req, res) => {
   const userId = req.params.userId;

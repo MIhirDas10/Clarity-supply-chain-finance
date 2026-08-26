@@ -148,16 +148,26 @@ router.post('/', async (req, res) => {
 // 3. GET /api/invoices - every invoice, newest first
 router.get('/', async (req, res) => {
   try {
-    const supplierFilter = req.user.role === 'admin' ? '' : 'WHERE supplier_id = $1';
+    let whereClause = '';
+    const params = [];
+
+    if (req.user.role === 'supplier') {
+      whereClause = 'WHERE supplier_id = $1';
+      params.push(String(req.user.id));
+    } else if (req.user.role === 'buyer') {
+      whereClause = 'WHERE buyer_name = $1';
+      params.push(req.user.business_name);
+    }
+
     const result = await pool.query(
       `SELECT id, invoice_number, buyer_name, supplier_id, status,
               invoice_amount, payout_amount, file_url, frozen_at,
               TO_CHAR(due_date, 'YYYY-MM-DD')       AS due_date,
               TO_CHAR(submitted_date, 'YYYY-MM-DD') AS submitted_date
       FROM invoices
-      ${supplierFilter}
+      ${whereClause}
       ORDER BY submitted_date DESC NULLS LAST, id DESC`,
-          req.user.role === 'admin' ? [] : [String(req.user.id)]
+      params
     );
     res.json(result.rows);
   } catch (error) {

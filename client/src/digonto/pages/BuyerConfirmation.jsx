@@ -2,21 +2,11 @@ import { useState, useEffect } from "react";
 import { CheckCircle2, AlertTriangle, Clock, History, FileText, Loader2, Search } from "lucide-react";
 import ConfirmationModal from "../components/ConfirmationModal.jsx";
 import DisputeModal from "../components/DisputeModal.jsx";
-
-// Simulated buyers for the dropdown (since no auth yet)
-const BUYERS = [
-  "Apex Footwear Ltd",
-  "Pran-RFL Group",
-  "Global Retailers",
-  "Unilever BD",
-  "Beximco Pharma",
-  "Walton Group",
-  "Square Group"
-];
+import { useAuth } from "../../auth/AuthContext.jsx";
 
 export default function BuyerConfirmation() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("pending");
-  const [selectedBuyer, setSelectedBuyer] = useState(BUYERS[0]);
   
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -30,11 +20,17 @@ export default function BuyerConfirmation() {
     setError(null);
     try {
       // Fetch both pending and history based on tab
-      const endpoint = activeTab === "pending" 
-        ? `/api/confirmations/pending?buyer=${encodeURIComponent(selectedBuyer)}`
-        : `/api/confirmations/history?buyer=${encodeURIComponent(selectedBuyer)}`;
+      let endpoint = activeTab === "pending" 
+        ? `/api/confirmations/pending`
+        : `/api/confirmations/history`;
         
-      const res = await fetch(endpoint);
+      // We no longer pass ?buyer=... because the backend securely 
+      // uses the logged-in user's token to filter invoices.
+      const res = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('clarity_token')}`
+        }
+      });
       const data = await res.json();
       
       if (!res.ok) throw new Error(data.error || "Failed to fetch invoices");
@@ -49,7 +45,7 @@ export default function BuyerConfirmation() {
 
   useEffect(() => {
     fetchInvoices();
-  }, [activeTab, selectedBuyer]);
+  }, [activeTab]);
 
   const handleConfirmed = () => {
     setConfirmingInvoice(null);
@@ -85,23 +81,6 @@ export default function BuyerConfirmation() {
           <p className="text-[13px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
             Review, confirm, or dispute invoices submitted by your suppliers.
           </p>
-        </div>
-        
-        {/* Buyer Selector (Mock Auth) */}
-        <div className="flex flex-col items-end">
-          <label className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-secondary)" }}>
-            Acting As Buyer
-          </label>
-          <select
-            value={selectedBuyer}
-            onChange={(e) => setSelectedBuyer(e.target.value)}
-            className="px-3 py-2 text-[13px] font-medium rounded-lg border outline-none cursor-pointer"
-            style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border)", color: "var(--text-primary)" }}
-          >
-            {BUYERS.map(b => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
         </div>
       </div>
 

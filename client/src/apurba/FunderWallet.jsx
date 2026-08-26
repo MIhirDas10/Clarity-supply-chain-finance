@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
 
-// Same demo funders the Marketplace page uses ("Acting as: ..."), so a
-// balance topped up here is the same balance the Marketplace/Auto-Invest
-// pages spend from.
-const mockFunders = [
-  { id: 'F-1', name: 'BRAC Bank' },
-  { id: 'F-2', name: 'IDLC Finance' },
-  { id: 'F-3', name: 'City Bank NBFI' },
-  { id: 'F-14', name: 'jhv' },
-];
+// The funders list will be fetched from the API
+const DEFAULT_FUNDER = { id: 'F-1', name: 'Loading...' };
 
 function formatTaka(amount) {
   return '৳ ' + Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -17,11 +10,13 @@ function formatTaka(amount) {
 
 const FunderWallet = () => {
   const { user } = useAuth();
-  const [funder, setFunder] = useState(mockFunders[0]);
+  const [funders, setFunders] = useState([]);
+  const [funder, setFunder] = useState(DEFAULT_FUNDER);
   const [wallet, setWallet] = useState(null);
   const [amount, setAmount] = useState('');
   const [depositing, setDepositing] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [kybSubmitted, setKybSubmitted] = useState(true);
   const [message, setMessage] = useState('');
   const [manualIds, setManualIds] = useState({}); // { [transactionId]: typed invoice id }
   const [confirmingRef, setConfirmingRef] = useState(null);
@@ -45,10 +40,45 @@ const FunderWallet = () => {
   );
 
   useEffect(() => {
-    if (user?.role === 'funder') {
-      const loggedInFunder = { id: `F-${user.id}`, name: user.business_name };
-      setFunder(loggedInFunder);
-    }
+    // Fetch dynamic funders (Banks in Bangladesh)
+    const fetchFunders = async () => {
+      try {
+        const response = await fetch('/api/auth/banks');
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setFunders(data);
+          
+          // Use logged in user if available, otherwise first bank
+          if (user?.role === 'funder') {
+            setFunder({ id: `F-${user.id}`, name: user.business_name });
+          } else {
+            setFunder(data[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching funders:', error);
+      }
+    };
+
+    // Check KYB status
+    const checkKybStatus = async () => {
+      try {
+        const token = localStorage.getItem('clarity_token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await fetch('/api/documents', { headers });
+        if (response.ok) {
+          const docs = await response.json();
+          if (docs.length === 0 || !docs.some(d => d.status === 'Approved')) {
+            setKybSubmitted(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking KYB status:', error);
+      }
+    };
+
+    fetchFunders();
+    checkKybStatus();
   }, [user?.id, user?.business_name, user?.role]);
 
   useEffect(() => {
@@ -177,16 +207,30 @@ const FunderWallet = () => {
             <h1 className="text-3xl font-bold text-slate-900">Funder Wallet</h1>
             <p className="text-slate-500 mt-1">Top up by bKash/Nagad/Rocket through UddoktaPay, then fund invoices from the balance.</p>
           </div>
-          <select
-            value={funder.id}
-            onChange={(e) => setFunder(mockFunders.find((f) => f.id === e.target.value))}
-            className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-          >
-            {mockFunders.map((f) => (
-              <option key={f.id} value={f.id}>{f.name}</option>
-            ))}
-          </select>
+          {funders.length > 0 && (
+            <select
+              value={funder.id}
+              onChange={(e) => setFunder(funders.find((f) => f.id === e.target.value))}
+              className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+            >
+              {funders.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          )}
         </div>
+
+        {!kybSubmitted && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm flex flex-col md:flex-row items-center justify-between mb-8">
+            <div className="mb-2 md:mb-0">
+              <h3 className="font-bold text-red-800">Action Required: KYB Verification Incomplete</h3>
+              <p className="text-red-700 text-sm">You must upload your KYB documents in the Document Vault and wait for Admin approval before you can deposit funds.</p>
+            </div>
+            <a href="/funder/vault" className="px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition">
+              Go to Document Vault
+            </a>
+          </div>
+        )}
 
         {verifying && (
           <div className="p-4 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">Confirming your payment with UddoktaPay...</div>
@@ -201,22 +245,22 @@ const FunderWallet = () => {
             {wallet ? formatTaka(wallet.balance) : '...'}
           </p>
 
-          <form onSubmit={handleDeposit} className="flex gap-3 mt-6">
+          <form onSubmit={handleDeposit} className="flex gap-4 mt-6">
             <input
               type="number"
-              min="1"
-              step="0.01"
-              placeholder="Amount to deposit"
+              placeholder="Enter amount (৳)"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="flex-1 border border-slate-300 rounded p-2.5 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              disabled={!kybSubmitted}
+              className="flex-1 border border-slate-300 rounded p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              disabled={depositing}
-              className="px-6 py-2.5 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 transition disabled:opacity-50"
+              disabled={!amount || isNaN(amount) || amount <= 0 || depositing || !kybSubmitted}
+              className="px-6 py-3 bg-indigo-600 text-white rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!kybSubmitted ? "Please submit KYB documents first" : ""}
             >
-              {depositing ? 'Redirecting...' : 'Deposit via UddoktaPay'}
+              {depositing ? 'Processing...' : 'Deposit via UddoktaPay'}
             </button>
           </form>
         </div>
