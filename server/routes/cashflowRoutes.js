@@ -8,19 +8,19 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { supplierIdsForAccount } = require('../services/accountScope');
 
 const EARLY_DISCOUNT_RATE = 0.03; // Standard 3% early funding discount
 
 router.get('/forecast', async (req, res) => {
   try {
-    const supplier = await pool.query(
-      'SELECT id FROM suppliers WHERE name = $1 LIMIT 1',
-      [req.user.business_name]
-    );
-    if (supplier.rowCount === 0) {
-      return res.status(404).json({ message: 'No supplier profile is linked to this account.' });
+    const params = [];
+    let accountClause = '';
+
+    if (req.user.role === 'supplier') {
+      params.push(await supplierIdsForAccount(req.user));
+      accountClause = 'supplier_id = ANY($1::text[]) AND';
     }
-    const supplierId = String(supplier.rows[0].id);
 
     // Fetch active/confirmed invoices expecting future inflow (excluding already completed, disputed, or voided)
     const result = await pool.query(
@@ -34,10 +34,10 @@ router.get('/forecast', async (req, res) => {
         TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
         TO_CHAR(submitted_date, 'YYYY-MM-DD') AS submitted_date
        FROM invoices
-      WHERE supplier_id = $1
-         AND status NOT IN ('Completed', 'Rejected', 'Disputed', 'Frozen')
+      WHERE ${accountClause}
+         status NOT IN ('Completed', 'Rejected', 'Disputed', 'Frozen')
        ORDER BY due_date ASC NULLS LAST, id DESC`,
-      [supplierId]
+      params
     );
 
     const invoices = result.rows;
