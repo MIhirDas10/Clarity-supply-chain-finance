@@ -21,10 +21,12 @@ async function getOrCreateWallet(client, funderId, funderName) {
   return result.rows[0];
 }
 
-// Credits a wallet - only ever called once a real UddoktaPay payment has
-// been verified as COMPLETED. Runs in its own transaction. ref is our own
-// client_ref, not UddoktaPay's own charge id (the two turned out not to be
-// the same value - see walletRoutes.js).
+// Credits a wallet - only ever called once a real bKash payment has been
+// executed as Completed. Runs in its own transaction. ref is client_ref,
+// kept from when this feature used a different gateway whose own charge id
+// changed between creation and completion (see walletRoutes.js) - bKash's
+// own paymentID doesn't have that problem, but client_ref is still what
+// wallet_transactions is keyed on here.
 async function creditWallet(funderId, funderName, amount, ref) {
   const client = await pool.connect();
   try {

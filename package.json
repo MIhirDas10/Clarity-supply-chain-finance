@@ -6,11 +6,14 @@
   "scripts": {
     "install:all": "npm --prefix server install && npm --prefix client install",
     "setup": "npm --prefix server run setup",
-    "dev": "echo Run the server and client in separate terminals: \"npm run dev:server\"  and  \"npm run dev:client\"",
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev"
   },
   "dependencies": {
     "puppeteer": "^25.8.0"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }
