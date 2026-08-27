@@ -9,6 +9,7 @@ const cloudinary = require('cloudinary').v2;
 const pool = require('../db');
 const { reconcileInvoice } = require('../services/calendarSync');
 const erp = require('../services/erpSheets'); // Mihir - ERP / Sheets sync
+const { supplierIdsForAccount } = require('../services/accountScope');
 
 const router = express.Router();
 
@@ -86,11 +87,12 @@ router.post('/check-duplicate', async (req, res) => {
   }
 
   try {
+    const supplierIds = await supplierIdsForAccount(req.user);
     const found = await pool.query(
       `SELECT id, invoice_number, buyer_name, invoice_amount, submitted_date
        FROM invoices
-       WHERE invoice_number = $1 AND supplier_id = $2`,
-      [invoice_number, String(req.user.id)]
+       WHERE invoice_number = $1 AND supplier_id = ANY($2::text[])`,
+      [invoice_number, supplierIds]
     );
 
     res.json({
@@ -113,12 +115,15 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    const supplierIds = await supplierIdsForAccount(req.user);
+    const supplierId = supplierIds[0] || String(req.user.id);
+
     // The same screening as the endpoint above, repeated here because the
     // browser could skip that step. The server is the only place we can
     // actually enforce it.
     const clash = await pool.query(
-      'SELECT id FROM invoices WHERE invoice_number = $1 AND supplier_id = $2',
-      [invoice_number, String(req.user.id)]
+      'SELECT id FROM invoices WHERE invoice_number = $1 AND supplier_id = ANY($2::text[])',
+      [invoice_number, supplierIds]
     );
     if (clash.rowCount > 0) {
       return res.status(409).json({ message: 'That invoice number has already been submitted' });
@@ -133,7 +138,7 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'Submitted', $6, $7, $8)
        RETURNING id, invoice_number, buyer_name, invoice_amount, due_date, status`,
       [
-        String(req.user.id), buyer_name, invoice_number, Number(invoice_amount),
+        supplierId, buyer_name, invoice_number, Number(invoice_amount),
         due_date, file_url || null,
         invoice_number,               // another member's column name for the same value
         String(invoice_amount),       // same again, stored as text on their side
@@ -153,8 +158,8 @@ router.get('/', async (req, res) => {
     const params = [];
 
     if (req.user.role === 'supplier') {
-      whereClause = 'WHERE supplier_id = $1';
-      params.push(String(req.user.id));
+      whereClause = 'WHERE supplier_id = ANY($1::text[])';
+      params.push(await supplierIdsForAccount(req.user));
     } else if (req.user.role === 'buyer') {
       whereClause = 'WHERE buyer_name = $1';
       params.push(req.user.business_name);

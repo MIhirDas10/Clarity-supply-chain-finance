@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import PipelineTracker from './PipelineTracker';
 import { updateInvoiceStatus } from '../../services/api';
+import { useAuth } from '../../../auth/AuthContext';
 
 const stages = ['Submitted', 'Buyer Confirmed', 'Funded', 'Payout Initiated', 'Completed'];
 
 const InvoiceCard = ({ invoice }) => {
     const [updating, setUpdating] = useState(false);
+    const { user } = useAuth();
 
     // Compute the logical next stage
     const currentIndex = stages.indexOf(invoice.currentStage);
     const nextStage = currentIndex >= 0 && currentIndex < stages.length - 1 ? stages[currentIndex + 1] : null;
+    const canAdvance = user?.role === 'admin' && nextStage;
 
     const handleAdvance = async () => {
         if (!nextStage) return;
@@ -57,7 +60,7 @@ const InvoiceCard = ({ invoice }) => {
                         Due: {new Date(invoice.dueDate).toLocaleDateString()}
                     </div>
                     
-                    {nextStage && (
+                    {canAdvance && (
                         <button 
                             onClick={handleAdvance}
                             disabled={updating}

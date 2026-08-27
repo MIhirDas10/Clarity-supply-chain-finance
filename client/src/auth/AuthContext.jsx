@@ -15,6 +15,17 @@ const AuthContext = createContext(null);
 
 const TOKEN_KEY = 'clarity_token';
 
+async function readJson(response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
@@ -49,10 +60,10 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    const data = await response.json();
+    const data = await readJson(response);
 
     if (!response.ok) {
-      throw new Error(data.message || 'Could not log in');
+      throw new Error(data.message || 'Could not reach the backend server. Make sure the API is running on port 5001.');
     }
 
     localStorage.setItem(TOKEN_KEY, data.token);
@@ -67,7 +78,7 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
+    const data = await readJson(response);
 
     if (!response.ok) {
       throw new Error(data.message || 'Could not create the account');
