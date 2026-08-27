@@ -10,7 +10,9 @@
     "setup": "node setup.js",
     "seed:settlement-test": "node seed-settlement-test.js",
     "seed:settlement-reset": "node seed-settlement-test.js --reset",
-    "seed:calendar-test": "node seed-calendar-test.js"
+    "seed:calendar-test": "node seed-calendar-test.js",
+    "seed:dynamic-discounting-test": "node seed-dynamic-discounting-test.js",
+    "seed:dynamic-discounting-reset": "node seed-dynamic-discounting-test.js --reset"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",
