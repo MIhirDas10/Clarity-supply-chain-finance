@@ -35,3 +35,6 @@ tools
 build_feature_3_4_guide.py
 Clarity_FR.docx
 ERP_FEATURE_CONTEXT.md
+
+
+.env.example    

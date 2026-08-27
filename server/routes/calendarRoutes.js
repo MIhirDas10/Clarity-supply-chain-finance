@@ -26,7 +26,7 @@
 const express = require('express');
 const https = require('https');
 const pool = require('../db');
-const { configured, oauthState, reconcileInvoice, GOOGLE_SCOPE } = require('../services/calendarSync');
+const { configured, clientId, clientSecret, oauthState, reconcileInvoice, GOOGLE_SCOPE } = require('../services/calendarSync');
 
 const router = express.Router();
 
@@ -65,7 +65,7 @@ router.get('/connect', async (req, res) => {
      ON CONFLICT (user_id, provider) DO UPDATE SET oauth_state = EXCLUDED.oauth_state, updated_at = NOW()`,
     [req.user.id, state]
   );
-  const params = new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID, redirect_uri: redirectUri, response_type: 'code', access_type: 'offline', prompt: 'consent', scope: GOOGLE_SCOPE, state });
+  const params = new URLSearchParams({ client_id: clientId(), redirect_uri: redirectUri, response_type: 'code', access_type: 'offline', prompt: 'consent', scope: GOOGLE_SCOPE, state });
   res.json({ authorization_url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 });
 
@@ -76,7 +76,7 @@ async function oauthCallback(req, res) {
   const connection = await pool.query('SELECT * FROM calendar_connections WHERE oauth_state = $1', [state]);
   if (!connection.rowCount) return res.status(400).send('Invalid or expired OAuth state');
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/calendar/oauth/callback`;
-  const tokenBody = new URLSearchParams({ code, client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, redirect_uri: redirectUri, grant_type: 'authorization_code' });
+  const tokenBody = new URLSearchParams({ code, client_id: clientId(), client_secret: clientSecret(), redirect_uri: redirectUri, grant_type: 'authorization_code' });
   try {
     const token = await new Promise((resolve, reject) => {
       const request = https.request({ hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(tokenBody.toString()) } }, (response) => { let data = ''; response.on('data', (chunk) => { data += chunk; }); response.on('end', () => response.statusCode >= 400 ? reject(new Error(data)) : resolve(JSON.parse(data))); });
