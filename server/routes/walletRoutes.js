@@ -1,15 +1,15 @@
-// Feature 3 - Funder Deposit & Invoice Funding via bKash (UddoktaPay)
+// Feature 4 - Funder Deposit & Invoice Funding via bKash
 // (Apurba Roy, SL 3)   Mounted at /api/wallet
 //
-// A funder tops up a wallet through UddoktaPay (which itself offers
-// bKash/Nagad/Rocket), then funds invoices out of that balance. Depositing
-// and funding are two separate, ordinary transactions - nobody's money
-// leaves the platform's own ledger just to fund one invoice.
+// A funder tops up a wallet through bKash's real Tokenized Checkout sandbox,
+// then funds invoices out of that balance. Depositing and funding are two
+// separate, ordinary transactions - nobody's money leaves the platform's
+// own ledger just to fund one invoice.
 
 const express = require('express');
 const crypto = require('crypto');
 const pool = require('../db');
-const uddoktapay = require('../services/uddoktapay');
+const bkash = require('../services/bkash');
 const { getOrCreateWallet, creditWallet, fundInvoiceFromWallet } = require('../services/funderWallet');
 
 const router = express.Router();
@@ -25,7 +25,7 @@ router.get('/:funderId', async (req, res) => {
 
     const history = await pool.query(
       `SELECT wt.id, wt.type, wt.amount, wt.balance_after, wt.invoice_id, wt.status, wt.created_at,
-              wt.client_ref, i.invoice_number
+              wt.client_ref, wt.bkash_payment_id, i.invoice_number
        FROM wallet_transactions wt
        LEFT JOIN invoices i ON i.id::TEXT = wt.invoice_id
        WHERE wt.funder_id = $1
@@ -41,7 +41,7 @@ router.get('/:funderId', async (req, res) => {
   }
 });
 
-// 2. POST /api/wallet/deposit/init - start a deposit through UddoktaPay.
+// 2. POST /api/wallet/deposit/init - start a deposit through bKash.
 //    Body: { funder_id, funder_name, amount }
 router.post('/deposit/init', async (req, res) => {
   const { funder_id, funder_name, amount } = req.body;
@@ -54,57 +54,52 @@ router.post('/deposit/init', async (req, res) => {
   }
 
   try {
-    // Confirmed the hard way that both req.headers.origin (some browsers
-    // send it without a port) and req.get('host') (the Vite dev proxy
-    // forwards this request to the backend, so Express sees the backend's
-    // own port here, not 5173) are unreliable for building a redirect the
-    // funder actually lands back on. APP_URL is a fixed, known-correct
-    // address - the same one the calendar OAuth flow already relies on for
-    // exactly this reason - so it is used unconditionally, not as a fallback.
+    // APP_URL is a fixed, known-correct address rather than anything derived
+    // from the request - confirmed the hard way (with UddoktaPay, the
+    // gateway this feature used before) that both req.headers.origin and
+    // req.get('host') are unreliable behind the Vite dev proxy. bKash
+    // appends ?paymentID=...&status=...&signature=... to whatever
+    // callbackURL is given, so this must be a plain address with no query
+    // string already on it.
     const origin = process.env.APP_URL || req.headers.origin || `${req.protocol}://${req.get('host')}`;
-    // Generated before UddoktaPay is even called. UddoktaPay's own id for
-    // this charge isn't known yet - confirmed against the real sandbox that
-    // the id in the payment_url it's about to return is NOT the id it hands
-    // back on redirect once the payment actually completes. ref is ours, so
-    // it is stable regardless of what UddoktaPay calls the charge on its side.
     const ref = crypto.randomUUID();
 
-    const charge = await uddoktapay.createCharge({
-      fullName: funder_name,
-      email: `${funder_id}@clarity.demo`, // UddoktaPay requires an email; funders aren't logged in yet
+    const charge = await bkash.createPayment({
       amount,
-      metadata: { funder_id, funder_name, ref },
-      redirectUrl: `${origin}/funder/wallet?funder_id=${encodeURIComponent(funder_id)}&ref=${ref}`,
-      cancelUrl: `${origin}/funder/wallet?funder_id=${encodeURIComponent(funder_id)}&ref=${ref}`,
-      webhookUrl: `${origin}/api/wallet/deposit/webhook`,
+      merchantInvoiceNumber: ref,
+      payerReference: funder_id,
+      callbackURL: `${origin}/funder/wallet`,
     });
 
+    // Unlike the previous gateway, bKash's paymentID is known immediately
+    // and stays the same through create -> execute -> query, so it is
+    // stored right away instead of needing a separate reconciliation step.
     await getOrCreateWallet(pool, funder_id, funder_name);
     await pool.query(
-      `INSERT INTO wallet_transactions (funder_id, type, amount, status, client_ref)
-       VALUES ($1, 'Deposit', $2, 'Pending', $3)`,
-      [funder_id, amount, ref]
+      `INSERT INTO wallet_transactions (funder_id, type, amount, status, client_ref, bkash_payment_id)
+       VALUES ($1, 'Deposit', $2, 'Pending', $3, $4)`,
+      [funder_id, amount, ref, charge.paymentID]
     );
 
-    res.status(201).json({ payment_url: charge.paymentUrl });
+    res.status(201).json({ payment_url: charge.bkashURL });
   } catch (error) {
-    console.error('UddoktaPay deposit init failed:', error.message);
+    console.error('bKash deposit init failed:', error.message);
     res.status(502).json({ message: 'Could not start the deposit: ' + error.message });
   }
 });
 
-// Shared by the two routes below: looks a deposit up by OUR OWN reference,
-// asks UddoktaPay whether its own id for the charge was actually paid, and
-// credits the wallet if so. Checking the row is still Pending before
-// crediting is what makes this idempotent - the redirect and the webhook can
-// both call this for the same payment and it will only ever be credited once.
-async function verifyAndCredit(ref, uddoktapayId) {
+// Looks a deposit up by bKash's own paymentID (stable end-to-end, unlike the
+// previous gateway), asks bKash to finalise the payment, and credits the
+// wallet if it went through. Checking the row is still Pending before
+// crediting is what makes this idempotent - clicking Confirm twice, or the
+// funder landing back on this page more than once, can never double-credit.
+async function verifyAndCredit(paymentID) {
   const existing = await pool.query(
-    'SELECT * FROM wallet_transactions WHERE client_ref = $1',
-    [ref]
+    'SELECT * FROM wallet_transactions WHERE bkash_payment_id = $1',
+    [paymentID]
   );
   if (existing.rowCount === 0) {
-    return { httpStatus: 404, body: { message: 'No deposit was started with that reference' } };
+    return { httpStatus: 404, body: { message: 'No deposit was started with that payment id' } };
   }
 
   const deposit = existing.rows[0];
@@ -112,64 +107,31 @@ async function verifyAndCredit(ref, uddoktapayId) {
     return { httpStatus: 200, body: { status: 'Completed', already_processed: true } };
   }
 
-  // One real payment must never credit more than one deposit, so a payment
-  // id already recorded against a different deposit is refused here rather
-  // than being allowed to hit the unique index as a raw database error.
-  const alreadyUsed = await pool.query(
-    'SELECT client_ref FROM wallet_transactions WHERE uddoktapay_id = $1 AND client_ref <> $2',
-    [uddoktapayId, ref]
-  );
-  if (alreadyUsed.rowCount > 0) {
+  const result = await bkash.executePayment(paymentID);
+  if (result.transactionStatus !== 'Completed') {
     return {
-      httpStatus: 409,
-      body: { message: 'That UddoktaPay payment has already been used to top up a different deposit. Each deposit needs its own payment.' },
+      httpStatus: 200,
+      body: { status: 'Pending', message: result.statusMessage || 'Payment not completed yet' },
     };
   }
 
-  const result = await uddoktapay.verifyPayment(uddoktapayId);
-  if (result.status !== 'COMPLETED') {
-    return { httpStatus: 200, body: { status: 'Pending', message: result.message || 'Payment not completed yet' } };
-  }
-
-  await pool.query('UPDATE wallet_transactions SET uddoktapay_id = $1 WHERE client_ref = $2', [uddoktapayId, ref]);
-  const newBalance = await creditWallet(deposit.funder_id, deposit.funder_id, deposit.amount, ref);
+  const newBalance = await creditWallet(deposit.funder_id, deposit.funder_id, deposit.amount, deposit.client_ref);
   return { httpStatus: 200, body: { status: 'Completed', balance: newBalance } };
 }
 
-// 3. POST /api/wallet/deposit/verify - called by the client once UddoktaPay
-//    redirects the funder back. Body: { ref, uddoktapay_id }
-//    ref is our own tracking id (finds the pending row); uddoktapay_id is
-//    the real id UddoktaPay put on the redirect (what actually gets verified).
+// 3. POST /api/wallet/deposit/verify - called by the client once bKash
+//    redirects the funder back. Body: { paymentID }
 router.post('/deposit/verify', async (req, res) => {
-  const { ref, uddoktapay_id } = req.body;
-  if (!ref || !uddoktapay_id) {
-    return res.status(400).json({ message: 'ref and uddoktapay_id are required' });
+  const { paymentID } = req.body;
+  if (!paymentID) {
+    return res.status(400).json({ message: 'paymentID is required' });
   }
   try {
-    const { httpStatus, body } = await verifyAndCredit(ref, uddoktapay_id);
+    const { httpStatus, body } = await verifyAndCredit(paymentID);
     res.status(httpStatus).json(body);
   } catch (error) {
-    console.error('UddoktaPay verify failed:', error.message);
+    console.error('bKash verify failed:', error.message);
     res.status(502).json({ message: 'Could not verify the payment: ' + error.message });
-  }
-});
-
-// UddoktaPay also POSTs here directly once a payment completes, so a
-// deposit still gets credited even if the funder closes the tab before the
-// redirect fires. Our ref rides along in metadata since UddoktaPay echoes it
-// back in the webhook body.
-router.post('/deposit/webhook', async (req, res) => {
-  const ref = req.body.metadata?.ref;
-  const uddoktapayId = req.body.invoice_id;
-  if (!ref || !uddoktapayId) {
-    return res.status(400).json({ message: 'ref or invoice_id missing from webhook body' });
-  }
-  try {
-    const { httpStatus, body } = await verifyAndCredit(ref, uddoktapayId);
-    res.status(httpStatus).json(body);
-  } catch (error) {
-    console.error('UddoktaPay webhook verify failed:', error.message);
-    res.status(502).json({ message: 'Could not verify the payment' });
   }
 });
 

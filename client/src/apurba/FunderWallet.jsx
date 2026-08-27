@@ -33,7 +33,7 @@ const FunderWallet = () => {
     setWallet(await res.json());
   };
 
-  // A deposit sits on Pending until UddoktaPay confirms the payment, which
+  // A deposit sits on Pending until bKash confirms the payment, which
   // happens on their side, not ours - so there is no event to listen for.
   const hasPendingDeposit = (wallet?.transactions || []).some(
     (tx) => tx.status === 'Pending' && tx.type === 'Deposit'
@@ -85,9 +85,9 @@ const FunderWallet = () => {
     loadWallet(funder.id);
   }, [funder]);
 
-  // Auto-refresh, but only while a deposit is actually waiting on
-  // UddoktaPay. Once everything has settled the polling stops by itself,
-  // so an idle wallet page is not sitting there hitting the server forever.
+  // Auto-refresh, but only while a deposit is actually waiting on bKash.
+  // Once everything has settled the polling stops by itself, so an idle
+  // wallet page is not sitting there hitting the server forever.
   useEffect(() => {
     if (!hasPendingDeposit) return;
     const timer = setInterval(() => loadWallet(funder.id), 5000);
@@ -95,7 +95,7 @@ const FunderWallet = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPendingDeposit, funder.id]);
 
-  // Paying happens in another tab (UddoktaPay's checkout), so coming back to
+  // Paying happens in another tab (bKash's checkout), so coming back to
   // this one is the moment the balance is most likely to be out of date.
   useEffect(() => {
     const refresh = () => loadWallet(funder.id);
@@ -104,23 +104,21 @@ const FunderWallet = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [funder.id]);
 
-  // UddoktaPay redirects back here with ?invoice_id=... once the funder
-  // completes (or cancels) the payment on its sandbox checkout page. ref is
-  // our own tracking id (added to the redirect url when the deposit was
-  // started) - confirmed against the real sandbox that UddoktaPay's own
-  // invoice_id here is NOT the id it originally returned when the charge was
-  // created, so ref is what actually finds the right pending deposit.
+  // bKash redirects back here with ?paymentID=...&status=... once the
+  // funder completes (or cancels/fails) the payment on its checkout page.
+  // paymentID is bKash's own id for the charge - unlike the gateway this
+  // feature used before, it is the SAME id from creation through execution,
+  // so no separate tracking reference is needed to find the deposit again.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const uddoktapayId = params.get('invoice_id');
-    const ref = params.get('ref');
-    if (!uddoktapayId || !ref) return;
+    const paymentID = params.get('paymentID');
+    if (!paymentID) return;
 
     setVerifying(true);
     fetch('/api/wallet/deposit/verify', {
       method: 'POST',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ref, uddoktapay_id: uddoktapayId }),
+      body: JSON.stringify({ paymentID }),
     })
       .then((res) => res.json())
       .then((data) => {
@@ -132,13 +130,12 @@ const FunderWallet = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // UddoktaPay's automatic redirect back to this page only works if this app
-  // is reachable at a public URL - it can't reach a developer's own
-  // localhost, so on localhost the redirect frequently fails to load at
-  // all. This lets a funder finish a stuck deposit anyway: UddoktaPay always
-  // shows its own "Invoice ID" on the payment page after a transaction is
-  // entered, and pasting that in here calls the exact same verify step the
-  // automatic redirect would have.
+  // bKash's automatic redirect back to this page only works if this app is
+  // reachable at a public URL - it can't reach a developer's own localhost,
+  // so on localhost the redirect can fail to load at all. This lets a
+  // funder finish a stuck deposit anyway: bKash's own checkout page shows
+  // the Payment ID after a transaction completes, and pasting it in here
+  // calls the exact same verify step the automatic redirect would have.
   const confirmManually = async (tx) => {
     const typedId = (manualIds[tx.id] || '').trim();
     if (!typedId) return;
@@ -148,7 +145,7 @@ const FunderWallet = () => {
       const res = await fetch('/api/wallet/deposit/verify', {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: tx.client_ref, uddoktapay_id: typedId }),
+        body: JSON.stringify({ paymentID: typedId }),
       });
       const data = await res.json();
       setMessage(
@@ -190,8 +187,8 @@ const FunderWallet = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
-      // Hands off to UddoktaPay's own checkout page (bKash/Nagad/Rocket
-      // choices live there) - it redirects back to this page when done.
+      // Hands off to bKash's own checkout page - it redirects back to
+      // this page when done.
       window.location.href = data.payment_url;
     } catch (err) {
       setMessage(err.message || 'Could not start the deposit');
@@ -205,7 +202,7 @@ const FunderWallet = () => {
         <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-slate-200">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Funder Wallet</h1>
-            <p className="text-slate-500 mt-1">Top up by bKash/Nagad/Rocket through UddoktaPay, then fund invoices from the balance.</p>
+            <p className="text-slate-500 mt-1">Top up your wallet via bKash, then fund invoices from the balance.</p>
           </div>
           {funders.length > 0 && (
             <select
@@ -233,7 +230,7 @@ const FunderWallet = () => {
         )}
 
         {verifying && (
-          <div className="p-4 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">Confirming your payment with UddoktaPay...</div>
+          <div className="p-4 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">Confirming your payment with bKash...</div>
         )}
         {message && !verifying && (
           <div className="p-4 bg-slate-100 text-slate-700 rounded-lg border border-slate-200">{message}</div>
@@ -260,7 +257,7 @@ const FunderWallet = () => {
               className="px-6 py-3 bg-indigo-600 text-white rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               title={!kybSubmitted ? "Please submit KYB documents first" : ""}
             >
-              {depositing ? 'Processing...' : 'Deposit via UddoktaPay'}
+              {depositing ? 'Processing...' : 'Deposit via bKash'}
             </button>
           </form>
         </div>
@@ -276,8 +273,8 @@ const FunderWallet = () => {
             )}
           </div>
           <p className="px-6 text-xs text-slate-500 mt-1">
-            A deposit stays on "Pending" until UddoktaPay confirms it. If it does not clear on its own,
-            paste the "Invoice ID" from UddoktaPay's payment page into the row below to confirm it by hand.
+            A deposit stays on "Pending" until bKash confirms it. If it does not clear on its own,
+            paste the Payment ID from bKash's checkout page into the row below to confirm it by hand.
           </p>
           {!wallet || wallet.transactions.length === 0 ? (
             <p className="p-6 text-slate-500">No transactions yet.</p>
@@ -328,7 +325,7 @@ const FunderWallet = () => {
                               <span className="text-xs text-slate-500">Already paid this one?</span>
                               <input
                                 type="text"
-                                placeholder="Paste UddoktaPay Invoice ID"
+                                placeholder="Paste bKash Payment ID"
                                 value={manualIds[tx.id] || ''}
                                 onChange={(e) => setManualIds({ ...manualIds, [tx.id]: e.target.value })}
                                 className="w-56 border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
