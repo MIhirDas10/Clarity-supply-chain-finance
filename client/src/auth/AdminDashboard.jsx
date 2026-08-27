@@ -215,6 +215,25 @@ function AdminDashboard() {
             </div>
           )}
         </div>
+
+        {/* Platform Statistics */}
+        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 mt-6">
+          <h2 className="text-lg font-bold text-slate-900 mb-4">Platform Statistics</h2>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+              <span className="text-sm font-medium text-slate-600">Suppliers</span>
+              <span className="text-sm font-bold text-slate-900">{users.filter(u => u.role === 'supplier').length}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+              <span className="text-sm font-medium text-slate-600">Buyers</span>
+              <span className="text-sm font-bold text-slate-900">{users.filter(u => u.role === 'buyer').length}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
+              <span className="text-sm font-medium text-slate-600">Funders</span>
+              <span className="text-sm font-bold text-slate-900">{users.filter(u => u.role === 'funder').length}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
