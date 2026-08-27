@@ -9,10 +9,11 @@ export default function Header() {
  const [unreadCount, setUnreadCount] = useState(0);
  const { user, logout } = useAuth();
  
- useEffect(() => {
- fetch("/api/notifications")
- .then((res) => res.json())
- .then((data) => {
+  useEffect(() => {
+    if (user?.is_paused) return;
+    fetch("/api/notifications")
+      .then((res) => res.json())
+      .then((data) => {
  let count = 0;
  if (Array.isArray(data)) {
  for (let i = 0; i < data.length; i++) {

@@ -438,8 +438,11 @@ CREATE TABLE IF NOT EXISTS supplier_documents (
     file_url TEXT NOT NULL,
     file_name VARCHAR(255),
     notes TEXT,
+    status VARCHAR(50) DEFAULT 'Pending',
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE supplier_documents ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pending';
 
 -- ===========================================================================
 -- Module 3: Funder Deposit & Invoice Funding via bKash (UddoktaPay)

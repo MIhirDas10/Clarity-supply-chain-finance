@@ -13,7 +13,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAuthAllowPaused, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -58,11 +58,13 @@ router.post('/signup', async (req, res) => {
     // rounds" is bcrypt's standard cost; higher is slower but harder to crack.
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const initialStatus = role === 'funder' ? 'Pending' : 'Approved';
+
     const saved = await pool.query(
-      `INSERT INTO users (role, business_name, email, phone, password_hash, status, is_paused)
-       VALUES ($1, $2, $3, $4, $5, 'Pending', false)
-       RETURNING id, role, business_name, email, status, created_at, is_paused, pause_reason`,
-      [role, business_name, normalisedEmail, phone || null, passwordHash]
+      `INSERT INTO users (role, business_name, email, phone, password_hash, status, is_paused, approved_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, CASE WHEN $6 = 'Approved' THEN NOW() ELSE NULL END)
+       RETURNING id, role, business_name, email, status, created_at, approved_at, is_paused, pause_reason`,
+      [role, business_name, normalisedEmail, phone || null, passwordHash, initialStatus]
     );
 
     res.status(201).json({
@@ -120,7 +122,7 @@ router.post('/login', async (req, res) => {
 
 // 3. GET /api/auth/me - re-reads the database rather than trusting the token
 //    alone, so a user who was just Rejected cannot keep using an old token.
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', requireAuthAllowPaused, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT id, role, business_name, email, status, is_paused, pause_reason FROM users WHERE id = $1',
@@ -226,6 +228,7 @@ router.patch('/:id/approve', requireAuth, requireRole('admin'), async (req, res)
     }
     res.json(updated.rows[0]);
   } catch (error) {
+    console.error('Approve Error:', error);
     res.status(500).json({ message: 'Could not approve that account' });
   }
 });
@@ -244,6 +247,7 @@ router.patch('/:id/reject', requireAuth, requireRole('admin'), async (req, res) 
     }
     res.json(updated.rows[0]);
   } catch (error) {
+    console.error('Reject Error:', error);
     res.status(500).json({ message: 'Could not reject that account' });
   }
 });
@@ -251,7 +255,7 @@ router.patch('/:id/reject', requireAuth, requireRole('admin'), async (req, res) 
 // 8. PATCH /api/auth/:id/pause
 router.patch('/:id/pause', requireAuth, requireRole('admin'), async (req, res) => {
   try {
-    const { reason } = req.body;
+    const reason = req.body ? req.body.reason : null;
     const updated = await pool.query(
       `UPDATE users SET is_paused = true, pause_reason = $1
        WHERE id = $2
@@ -263,6 +267,7 @@ router.patch('/:id/pause', requireAuth, requireRole('admin'), async (req, res) =
     }
     res.json(updated.rows[0]);
   } catch (error) {
+    console.error('Pause Error:', error);
     res.status(500).json({ message: 'Could not pause that account' });
   }
 });
@@ -281,7 +286,25 @@ router.patch('/:id/unpause', requireAuth, requireRole('admin'), async (req, res)
     }
     res.json(updated.rows[0]);
   } catch (error) {
+    console.error('Unpause Error:', error);
     res.status(500).json({ message: 'Could not unpause that account' });
+  }
+});
+
+// 10. DELETE /api/auth/:id
+router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const deleted = await pool.query(
+      `DELETE FROM users WHERE id = $1 RETURNING id`,
+      [req.params.id]
+    );
+    if (deleted.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete Error:', error);
+    res.status(500).json({ message: 'Could not delete that account' });
   }
 });
 

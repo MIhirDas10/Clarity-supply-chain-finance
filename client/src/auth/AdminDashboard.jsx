@@ -79,6 +79,22 @@ function AdminDashboard() {
     }
   }
 
+  async function deleteUser(id) {
+    if (!window.confirm("Are you sure you want to completely delete this account? This cannot be undone.")) return;
+    
+    const res = await authedFetch(`/api/auth/${id}`, {
+      method: 'DELETE',
+    });
+    
+    if (res.ok) {
+      load();
+      if (viewingDocsUserId === id) closeDocs();
+    } else {
+      const data = await res.json();
+      setMessage(data.message || 'Could not delete user');
+    }
+  }
+
   async function updateDocStatus(docId, newStatus) {
     try {
       const res = await authedFetch(`/api/documents/${docId}/status`, {
@@ -161,12 +177,18 @@ function AdminDashboard() {
                   <span className="text-slate-400">—</span>
                 )}
               </td>
-              <td style={{ whiteSpace: 'nowrap' }}>
+              <td style={{ whiteSpace: 'nowrap', display: 'flex', gap: '8px' }}>
                 <button className="auth-approve-btn" onClick={() => decide(u.id, 'approve')}>
                   Approve
                 </button>
                 <button className="auth-reject-btn" onClick={() => decide(u.id, 'reject')}>
                   Reject
+                </button>
+                <button 
+                  onClick={() => deleteUser(u.id)}
+                  className="px-3 py-1 rounded text-xs font-medium transition bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                >
+                  Delete
                 </button>
               </td>
             </tr>
@@ -212,18 +234,26 @@ function AdminDashboard() {
                 {u.is_paused && <span style={{ marginLeft: 4, background: '#fee2e2', color: '#991b1b' }} className="auth-chip">Paused</span>}
               </td>
               <td>
-                {u.status === 'Approved' && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {u.status === 'Approved' && (
+                    <button 
+                      onClick={() => togglePause(u)}
+                      className={`px-3 py-1 rounded text-xs font-medium transition ${
+                        u.is_paused 
+                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' 
+                          : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
+                      }`}
+                    >
+                      {u.is_paused ? 'Unpause' : 'Pause'}
+                    </button>
+                  )}
                   <button 
-                    onClick={() => togglePause(u)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition ${
-                      u.is_paused 
-                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' 
-                        : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
-                    }`}
+                    onClick={() => deleteUser(u.id)}
+                    className="px-3 py-1 rounded text-xs font-medium transition bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
                   >
-                    {u.is_paused ? 'Unpause' : 'Pause'}
+                    Delete
                   </button>
-                )}
+                </div>
               </td>
             </tr>
           ))}
