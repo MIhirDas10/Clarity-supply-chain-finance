@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
 
-// The funders list will be fetched from the API
-const DEFAULT_FUNDER = { id: 'F-1', name: 'Loading...' };
+// Who the wallet belongs to is not known until the logged-in user has been
+// resolved, so this page starts with no funder at all rather than guessing
+// one. Guessing used to mean briefly loading a DIFFERENT funder's wallet.
 
 function formatTaka(amount) {
   return '৳ ' + Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -11,8 +12,9 @@ function formatTaka(amount) {
 const FunderWallet = () => {
   const { user } = useAuth();
   const [funders, setFunders] = useState([]);
-  const [funder, setFunder] = useState(DEFAULT_FUNDER);
+  const [funder, setFunder] = useState(null);
   const [wallet, setWallet] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [amount, setAmount] = useState('');
   const [depositing, setDepositing] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -20,18 +22,50 @@ const FunderWallet = () => {
   const [message, setMessage] = useState('');
   const [manualIds, setManualIds] = useState({}); // { [transactionId]: typed invoice id }
   const [confirmingRef, setConfirmingRef] = useState(null);
+  const [bankQuery, setBankQuery] = useState('');
+  const [bankListOpen, setBankListOpen] = useState(false);
+  const bankBoxRef = useRef(null);
+
+  // A logged-in funder always acts as themselves - they can only deposit into
+  // their own wallet, so there is nothing for them to pick. The bank list is
+  // only a stand-in identity for when nobody is signed in as a funder.
+  const isFunder = user?.role === 'funder';
+
+  // Filters as you type; matches anywhere in the name, not just the start,
+  // so typing "city" finds "The City Bank PLC" - a plain <select> only
+  // jumps on the first letter, which is what "search isn't working" meant.
+  const filteredBanks = bankQuery.trim()
+    ? funders.filter((f) => (f.name || '').toLowerCase().includes(bankQuery.trim().toLowerCase()))
+    : funders;
+
+  // Closes the dropdown when a click lands anywhere outside it.
+  useEffect(() => {
+    const closeOnOutsideClick = (e) => {
+      if (bankBoxRef.current && !bankBoxRef.current.contains(e.target)) {
+        setBankListOpen(false);
+        setBankQuery('');
+      }
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, []);
 
   const authHeaders = () => {
     const token = localStorage.getItem('clarity_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  const loadWallet = async (funderId) => {
-    const res = await fetch(`/api/wallet/${funderId}?funderName=${encodeURIComponent(funder.name)}`, {
+  const loadWallet = async (funderId, funderName) => {
+    const res = await fetch(`/api/wallet/${funderId}?funderName=${encodeURIComponent(funderName)}`, {
       headers: authHeaders(),
     });
     setWallet(await res.json());
   };
+
+  // Asks for a fresh copy of the wallet. Everything that changes the balance
+  // calls this instead of fetching directly, so none of them can fire with a
+  // stale funder captured from an old render.
+  const refresh = () => setReloadKey((key) => key + 1);
 
   // A deposit sits on Pending until bKash confirms the payment, which
   // happens on their side, not ours - so there is no event to listen for.
@@ -81,28 +115,30 @@ const FunderWallet = () => {
     checkKybStatus();
   }, [user?.id, user?.business_name, user?.role]);
 
+  // Nothing is fetched until the funder is known - see the note at the top
+  // of this file for why loading "whoever is first" was actively wrong.
   useEffect(() => {
-    loadWallet(funder.id);
-  }, [funder]);
+    if (!funder) return;
+    loadWallet(funder.id, funder.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [funder, reloadKey]);
 
   // Auto-refresh, but only while a deposit is actually waiting on bKash.
   // Once everything has settled the polling stops by itself, so an idle
   // wallet page is not sitting there hitting the server forever.
   useEffect(() => {
-    if (!hasPendingDeposit) return;
-    const timer = setInterval(() => loadWallet(funder.id), 5000);
+    if (!funder || !hasPendingDeposit) return;
+    const timer = setInterval(refresh, 5000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasPendingDeposit, funder.id]);
+  }, [hasPendingDeposit, funder?.id]);
 
   // Paying happens in another tab (bKash's checkout), so coming back to
   // this one is the moment the balance is most likely to be out of date.
   useEffect(() => {
-    const refresh = () => loadWallet(funder.id);
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [funder.id]);
+  }, []);
 
   // bKash redirects back here with ?paymentID=...&status=... once the
   // funder completes (or cancels/fails) the payment on its checkout page.
@@ -124,7 +160,7 @@ const FunderWallet = () => {
       .then((data) => {
         setMessage(data.status === 'Completed' ? 'Deposit confirmed.' : 'Payment was not completed.');
         window.history.replaceState({}, '', window.location.pathname);
-        loadWallet(funder.id);
+        refresh();
       })
       .finally(() => setVerifying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +187,7 @@ const FunderWallet = () => {
       setMessage(
         data.status === 'Completed' ? 'Deposit confirmed.' : (data.message || 'Payment was not completed yet.')
       );
-      loadWallet(funder.id);
+      refresh();
     } finally {
       setConfirmingRef(null);
     }
@@ -166,7 +202,7 @@ const FunderWallet = () => {
         headers: authHeaders(),
       });
       setMessage('Unpaid deposit discarded.');
-      loadWallet(funder.id);
+      refresh();
     } finally {
       setConfirmingRef(null);
     }
@@ -174,7 +210,7 @@ const FunderWallet = () => {
 
   const handleDeposit = async (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) return;
+    if (!funder || !amount || Number(amount) <= 0) return;
 
     setDepositing(true);
     setMessage('');
@@ -199,21 +235,58 @@ const FunderWallet = () => {
   return (
     <div className="p-8 bg-slate-50 min-h-screen font-sans">
       <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Funder Wallet</h1>
             <p className="text-slate-500 mt-1">Top up your wallet via bKash, then fund invoices from the balance.</p>
           </div>
-          {funders.length > 0 && (
-            <select
-              value={funder.id}
-              onChange={(e) => setFunder(funders.find((f) => f.id === e.target.value))}
-              className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            >
-              {funders.map((f) => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
+          {isFunder ? (
+            // Signed in as a funder: show who this wallet belongs to, as plain
+            // text. It used to sit in an editable-looking box, which made an
+            // account name read like a half-broken search field.
+            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+              <span className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-900 text-white text-sm font-semibold uppercase">
+                {(funder?.name || '?').charAt(0)}
+              </span>
+              <div className="leading-tight">
+                <p className="text-xs text-slate-500">Signed in as</p>
+                <p className="text-sm font-semibold text-slate-900">{funder?.name || 'Loading...'}</p>
+              </div>
+            </div>
+          ) : (
+            funders.length > 0 && (
+              <div className="relative w-full sm:w-64" ref={bankBoxRef}>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Acting as</label>
+                <input
+                  type="text"
+                  value={bankListOpen ? bankQuery : (funder?.name || '')}
+                  onChange={(e) => { setBankQuery(e.target.value); setBankListOpen(true); }}
+                  onFocus={() => { setBankQuery(''); setBankListOpen(true); }}
+                  placeholder="Search bank..."
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+                {bankListOpen && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg">
+                    {filteredBanks.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-slate-400">No bank matches "{bankQuery}"</p>
+                    ) : (
+                      filteredBanks.map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => { setFunder(f); setBankQuery(''); setBankListOpen(false); }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition ${
+                            f.id === funder?.id ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-700'
+                          }`}
+                        >
+                          {f.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )
           )}
         </div>
 
@@ -242,19 +315,19 @@ const FunderWallet = () => {
             {wallet ? formatTaka(wallet.balance) : '...'}
           </p>
 
-          <form onSubmit={handleDeposit} className="flex gap-4 mt-6">
+          <form onSubmit={handleDeposit} className="flex flex-col sm:flex-row gap-3 mt-6">
             <input
               type="number"
               placeholder="Enter amount (৳)"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              disabled={!kybSubmitted}
-              className="flex-1 border border-slate-300 rounded p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
+              disabled={!kybSubmitted || !funder}
+              className="flex-1 border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#E2136E] disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              disabled={!amount || isNaN(amount) || amount <= 0 || depositing || !kybSubmitted}
-              className="px-6 py-3 bg-indigo-600 text-white rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!funder || !amount || isNaN(amount) || amount <= 0 || depositing || !kybSubmitted}
+              className="px-6 py-3 bg-[#E2136E] text-white rounded-lg font-semibold hover:bg-[#c00f5e] transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               title={!kybSubmitted ? "Please submit KYB documents first" : ""}
             >
               {depositing ? 'Processing...' : 'Deposit via bKash'}

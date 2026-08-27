@@ -14,9 +14,30 @@ const { getOrCreateWallet, creditWallet, fundInvoiceFromWallet } = require('../s
 
 const router = express.Router();
 
+// Being logged in is not enough to touch a wallet - index.js already applies
+// requireAuth across /api, but that only proves WHO you are, not that the
+// wallet is yours. Without the check below, any signed-in account could read
+// or spend any other funder's balance just by changing the id in the URL.
+//
+// Wallet rows exist under both "14" and "F-14" for the same account (two code
+// paths created them differently - see accountScope.js, which works around
+// the same split), so both spellings count as owned.
+function ownsWallet(user, funderId) {
+  if (!user || funderId === undefined || funderId === null) return false;
+  if (user.role === 'admin') return true;          // admin views may inspect any wallet
+  if (user.role !== 'funder') return false;        // suppliers and buyers have no wallet
+  return String(funderId) === String(user.id) || String(funderId) === `F-${user.id}`;
+}
+
+function denyWallet(res) {
+  return res.status(403).json({ message: 'That wallet does not belong to your account.' });
+}
+
 // 1. GET /api/wallet/:funderId - balance + recent ledger entries.
 //    Creates the wallet on first visit, so a brand new funder id just works.
 router.get('/:funderId', async (req, res) => {
+  if (!ownsWallet(req.user, req.params.funderId)) return denyWallet(res);
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -49,6 +70,7 @@ router.post('/deposit/init', async (req, res) => {
   if (!funder_id || !funder_name) {
     return res.status(400).json({ message: 'funder_id and funder_name are required' });
   }
+  if (!ownsWallet(req.user, funder_id)) return denyWallet(res);
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
     return res.status(400).json({ message: 'amount must be a number greater than zero' });
   }
@@ -93,7 +115,7 @@ router.post('/deposit/init', async (req, res) => {
 // wallet if it went through. Checking the row is still Pending before
 // crediting is what makes this idempotent - clicking Confirm twice, or the
 // funder landing back on this page more than once, can never double-credit.
-async function verifyAndCredit(paymentID) {
+async function verifyAndCredit(paymentID, user) {
   const existing = await pool.query(
     'SELECT * FROM wallet_transactions WHERE bkash_payment_id = $1',
     [paymentID]
@@ -103,6 +125,13 @@ async function verifyAndCredit(paymentID) {
   }
 
   const deposit = existing.rows[0];
+  // A Payment ID is typed in by hand on the client, so it has to be checked
+  // against the caller here - otherwise pasting someone else's id would
+  // credit their wallet on their behalf.
+  if (!ownsWallet(user, deposit.funder_id)) {
+    return { httpStatus: 403, body: { message: 'That deposit does not belong to your account.' } };
+  }
+
   if (deposit.status === 'Completed') {
     return { httpStatus: 200, body: { status: 'Completed', already_processed: true } };
   }
@@ -127,7 +156,7 @@ router.post('/deposit/verify', async (req, res) => {
     return res.status(400).json({ message: 'paymentID is required' });
   }
   try {
-    const { httpStatus, body } = await verifyAndCredit(paymentID);
+    const { httpStatus, body } = await verifyAndCredit(paymentID, req.user);
     res.status(httpStatus).json(body);
   } catch (error) {
     console.error('bKash verify failed:', error.message);
@@ -141,6 +170,17 @@ router.post('/deposit/verify', async (req, res) => {
 //     removed and the ledger stays a faithful record of real money.
 router.delete('/deposit/:ref', async (req, res) => {
   try {
+    const owner = await pool.query(
+      'SELECT funder_id FROM wallet_transactions WHERE client_ref = $1',
+      [req.params.ref]
+    );
+    if (owner.rowCount === 0) {
+      return res.status(409).json({ message: 'That deposit is not pending - it cannot be discarded' });
+    }
+    if (!ownsWallet(req.user, owner.rows[0].funder_id)) return denyWallet(res);
+
+    // The Pending guard stays inside the DELETE itself, so a deposit that
+    // completes between these two queries still cannot be removed.
     const removed = await pool.query(
       "DELETE FROM wallet_transactions WHERE client_ref = $1 AND status = 'Pending' RETURNING id",
       [req.params.ref]
@@ -161,6 +201,7 @@ router.post('/fund/:invoiceId', async (req, res) => {
   if (!funder_id || !funder_name) {
     return res.status(400).json({ message: 'funder_id and funder_name are required' });
   }
+  if (!ownsWallet(req.user, funder_id)) return denyWallet(res);
 
   try {
     const result = await fundInvoiceFromWallet(req.params.invoiceId, funder_id, funder_name, 'manual');
