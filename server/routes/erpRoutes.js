@@ -26,6 +26,14 @@ const { requireRole } = require('../middleware/auth');
 const router = express.Router();
 
 router.use(requireRole('buyer', 'admin'));
+router.use(async (req, res, next) => {
+  try {
+    await erp.ensureSchema();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 function buyerName(req) { return req.user?.business_name || ''; }
 
@@ -252,6 +260,11 @@ router.get('/suppliers', async (req, res) => {
   const conn = await loadConnection(req.user.id);
   const result = await erp.fetchSupplierCrossReference(conn, buyerName(req));
   res.json(result);
+});
+
+router.use((error, req, res, next) => {
+  console.error('ERP route failed:', error.message);
+  res.status(500).json({ message: 'ERP request failed', detail: error.message });
 });
 
 module.exports = router;

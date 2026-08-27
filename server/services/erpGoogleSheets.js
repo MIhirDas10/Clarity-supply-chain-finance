@@ -3,6 +3,7 @@ const https = require('https');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env'), override: true });
 const pool = require('../db');
+const { clean, money: numberOrNull } = require('./erpUtils');
 
 const GOOGLE_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim() || '';
@@ -17,20 +18,12 @@ const SUPPLIER_HEADER = ['Supplier', 'Supplier ID', 'Contact', 'Status', 'Last U
 const SYNC_LOG_HEADER = ['Time', 'Invoice #', 'Action', 'Status', 'Target', 'Result', 'Detail'];
 const STATUS_NAMES = new Set(['Payable', 'Funded', 'Paid', 'Disputed', 'Pending', 'Voided', 'Overdue']);
 
-const clean = (value) => (value == null ? '' : String(value).trim());
-
 function configured() {
   return Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
 }
 
 function oauthState() {
   return crypto.randomBytes(24).toString('hex');
-}
-
-function numberOrNull(value) {
-  if (value == null || value === '') return null;
-  const parsed = Number(String(value).replace(/[^0-9.-]/g, ''));
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function columnName(index) {
