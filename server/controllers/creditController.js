@@ -774,9 +774,13 @@ exports.updatePricingPolicy = (req, res) =>
 exports.getPricing = (req, res) =>
   handle(res, "Credit Pricing Error:", "Failed to price invoice", async () => {
     const name = req.params.name;
-    const amount = Number(req.query.amount) || 100000;
-    const tenor = Number(req.query.tenor) || 60;
-    if (amount <= 0 || tenor <= 0 || tenor > 365) {
+    // Fall back to the defaults only when the caller left the value out.
+    // `Number(x) || default` treated an explicit 0 as missing, so amount=0
+    // was silently priced as 100000 instead of being rejected below.
+    const missing = (v) => v === undefined || v === null || String(v).trim() === "";
+    const amount = missing(req.query.amount) ? 100000 : Number(req.query.amount);
+    const tenor = missing(req.query.tenor) ? 60 : Number(req.query.tenor);
+    if (!isFinite(amount) || amount <= 0 || !isFinite(tenor) || tenor <= 0 || tenor > 365) {
       return res.status(400).json({
         error: "amount must be > 0 and tenor between 1 and 365 days",
       });
