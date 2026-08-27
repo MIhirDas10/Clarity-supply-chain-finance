@@ -7,12 +7,29 @@ import {
 import { useAuth } from '../../auth/AuthContext.jsx';
 
 // The global fetch interceptor (main.jsx) attaches the JWT, so plain fetch is fine.
-const jsonReq = (method) => (u, b) => fetch(u, { method, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+async function readJson(response) {
+    const text = await response.text();
+    try { return text ? JSON.parse(text) : {}; }
+    catch { return { message: text.slice(0, 160) || response.statusText }; }
+}
+
+const jsonReq = (method) => async (u, b) => {
+    const response = await fetch(u, { method, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined });
+    return { ok: response.ok, status: response.status, data: await readJson(response) };
+};
 const api = {
-    get: (u) => fetch(u).then(r => r.json()),
+    get: async (u) => {
+        const response = await fetch(u);
+        const data = await readJson(response);
+        if (!response.ok) throw new Error(data.detail ? `${data.message}: ${data.detail}` : data.message || `Request failed (${response.status})`);
+        return data;
+    },
     post: jsonReq('POST'),
     patch: jsonReq('PATCH'),
-    del: (u) => fetch(u, { method: 'DELETE' }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    del: async (u) => {
+        const response = await fetch(u, { method: 'DELETE' });
+        return { ok: response.ok, status: response.status, data: await readJson(response) };
+    },
 };
 
 const STATUS_OPTIONS = ['Payable', 'Funded', 'Paid', 'Disputed', 'Pending', 'Voided', 'Overdue'];
@@ -62,25 +79,30 @@ export default function ErpIntegration() {
     const prevStatuses = useRef({});
 
     const refresh = useCallback(async (withSuppliers) => {
-        const [st, lg, lo] = await Promise.all([
-            api.get('/api/erp/status'), api.get('/api/erp/ledger'), api.get('/api/erp/log?limit=30'),
-        ]);
-        setStatus(st);
-        if (st.connection) setCfg(c => ({ ...c, spreadsheet_id: st.connection.spreadsheet_id || '', ap_sheet: st.connection.ap_sheet || 'Accounts Payable', supplier_sheet: st.connection.supplier_sheet || 'Suppliers', delete_on_dispute: !!st.connection.delete_on_dispute }));
-        // flag rows whose status changed since last poll (real-time highlight)
-        const rows = Array.isArray(lg) ? lg : [];
-        const next = {};
-        rows.forEach(r => { next[r.invoice_id] = r.erp_status; });
-        rows.forEach(r => { r._changed = prevStatuses.current[r.invoice_id] && prevStatuses.current[r.invoice_id] !== r.erp_status; });
-        prevStatuses.current = next;
-        setLedger(rows);
-        setLog(Array.isArray(lo) ? lo : []);
-        if (withSuppliers) {
-            api.get('/api/erp/suppliers').then(setSuppliers).catch(() => {});
-            api.get('/api/erp/reconciliation').then(setReconciliation).catch(() => {});
-            if (user?.role === 'admin') api.get('/api/erp/admin/summary').then(setAdminSummary).catch(() => {});
+        try {
+            const [st, lg, lo] = await Promise.all([
+                api.get('/api/erp/status'), api.get('/api/erp/ledger'), api.get('/api/erp/log?limit=30'),
+            ]);
+            setStatus(st);
+            if (st.connection) setCfg(c => ({ ...c, spreadsheet_id: st.connection.spreadsheet_id || '', ap_sheet: st.connection.ap_sheet || 'Accounts Payable', supplier_sheet: st.connection.supplier_sheet || 'Suppliers', delete_on_dispute: !!st.connection.delete_on_dispute }));
+            // flag rows whose status changed since last poll (real-time highlight)
+            const rows = Array.isArray(lg) ? lg : [];
+            const next = {};
+            rows.forEach(r => { next[r.invoice_id] = r.erp_status; });
+            rows.forEach(r => { r._changed = prevStatuses.current[r.invoice_id] && prevStatuses.current[r.invoice_id] !== r.erp_status; });
+            prevStatuses.current = next;
+            setLedger(rows);
+            setLog(Array.isArray(lo) ? lo : []);
+            if (withSuppliers) {
+                api.get('/api/erp/suppliers').then(setSuppliers).catch(() => {});
+                api.get('/api/erp/reconciliation').then(setReconciliation).catch(() => {});
+                if (user?.role === 'admin') api.get('/api/erp/admin/summary').then(setAdminSummary).catch(() => {});
+            }
+        } catch (error) {
+            setFlash(error.message || 'Could not load ERP ledger.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [user?.role]);
 
     useEffect(() => { refresh(true); }, [refresh]);
