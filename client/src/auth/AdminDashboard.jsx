@@ -120,8 +120,104 @@ function AdminDashboard() {
   const pending = users.filter((u) => u.status === 'Pending');
 
   return (
-    <div className="auth-admin-page" style={{ maxWidth: 1400, display: 'flex', gap: '32px', alignItems: 'flex-start' }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <div className="auth-admin-page" style={{ maxWidth: 1600, display: 'flex', gap: '32px', alignItems: 'flex-start' }}>
+      
+      {/* Document Viewer Side Panel - Moved to Left per user request */}
+      <div className="w-96 shrink-0 sticky top-8">
+        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-slate-900">
+              {viewingDocsUser ? `Docs: ${viewingDocsUser.business_name}` : 'KYB Documents'}
+            </h2>
+            <div className="flex gap-2 items-center">
+              {viewingDocsUser && !viewingDocsUser.is_paused && viewingDocsUser.status === 'Approved' && (
+                <button 
+                  onClick={() => togglePause(viewingDocsUser, 'Admin requested additional KYB documents.')}
+                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-xs font-medium transition"
+                  title="Pause this user and request more documents"
+                >
+                  Request Docs
+                </button>
+              )}
+              {viewingDocsUserId && (
+                <button onClick={closeDocs} className="text-slate-500 hover:text-slate-800 font-medium text-sm ml-2">
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {!viewingDocsUserId ? (
+            <p className="text-slate-500 text-sm text-center py-8">Select a funder to view their documents.</p>
+          ) : loadingDocs ? (
+            <p className="text-slate-500 p-4 text-center text-sm">Loading documents...</p>
+          ) : userDocs.length === 0 ? (
+            <p className="text-slate-500 p-4 text-center text-sm">No documents found for this user.</p>
+          ) : (
+            <div className="space-y-4">
+              {userDocs.map(doc => {
+                const downloadUrl = doc.file_url?.includes('cloudinary.com') 
+                  ? doc.file_url.replace('/upload/', '/upload/fl_attachment/')
+                  : doc.file_url;
+                
+                return (
+                  <div key={doc.id} className="border border-slate-200 rounded p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-sm text-slate-800">{doc.document_type}</h4>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                        doc.status === 'Approved' ? 'bg-green-100 text-green-700' :
+                        doc.status === 'Rejected' ? 'bg-red-100 text-red-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {doc.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate mb-3" title={doc.file_url}>
+                      {doc.file_url.split('/').pop()}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mb-3">
+                      Uploaded: {new Date(doc.created_at).toLocaleDateString()}
+                    </p>
+                    
+                    <div className="flex items-center gap-2 mt-2 pt-3 border-t border-slate-100">
+                      {doc.status !== 'Approved' && (
+                        <button 
+                          onClick={() => updateDocStatus(doc.id, 'Approved')}
+                          className="px-3 py-1 bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 rounded text-xs transition"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {doc.status !== 'Rejected' && (
+                        <button 
+                          onClick={() => updateDocStatus(doc.id, 'Rejected')}
+                          className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded text-xs transition"
+                        >
+                          Reject
+                        </button>
+                      )}
+                      
+                      <div className="flex-1"></div>
+                      
+                      <a 
+                        href={downloadUrl}
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="px-3 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded text-xs transition text-center"
+                        download
+                      >
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
         <div className="flex items-center gap-3 mb-1">
           <ShieldCheck size={22} color="#0F172A" />
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -261,92 +357,6 @@ function AdminDashboard() {
       </table>
       </div>
 
-      {/* Document Viewer Side Panel */}
-      <div className="w-96 shrink-0 sticky top-8">
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-slate-900">
-              {viewingDocsUser ? `Docs: ${viewingDocsUser.business_name}` : 'KYB Documents'}
-            </h2>
-            <div className="flex gap-2 items-center">
-              {viewingDocsUser && !viewingDocsUser.is_paused && viewingDocsUser.status === 'Approved' && (
-                <button 
-                  onClick={() => togglePause(viewingDocsUser, 'Admin requested additional KYB documents.')}
-                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-xs font-medium transition"
-                  title="Pause this user and request more documents"
-                >
-                  Request Docs
-                </button>
-              )}
-              {viewingDocsUserId && (
-                <button onClick={closeDocs} className="text-slate-500 hover:text-slate-800 font-medium text-sm ml-2">
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-          
-          {!viewingDocsUserId ? (
-            <p className="text-slate-500 text-sm text-center py-8">Select a funder to view their documents.</p>
-          ) : loadingDocs ? (
-            <p className="text-slate-500 p-4 text-center text-sm">Loading documents...</p>
-          ) : userDocs.length === 0 ? (
-            <p className="text-slate-500 p-4 text-center text-sm">No documents found for this user.</p>
-          ) : (
-            <div className="space-y-4">
-              {userDocs.map(doc => {
-                const downloadUrl = doc.file_url?.includes('cloudinary.com') 
-                  ? doc.file_url.replace('/upload/', '/upload/fl_attachment/')
-                  : doc.file_url;
-                  
-                return (
-                <div key={doc.id} className="p-4 border border-slate-200 rounded-lg flex flex-col gap-3">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 text-sm flex items-center">
-                      {doc.doc_type}
-                      <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        doc.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                        doc.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {doc.status || 'Pending'}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1 truncate">{doc.file_name || 'Document'}</p>
-                    {doc.notes && <p className="text-xs text-slate-600 mt-1">{doc.notes}</p>}
-                    <p className="text-[10px] text-slate-400 mt-2">
-                      Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center mt-1 pt-3 border-t border-slate-100">
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => updateDocStatus(doc.id, 'Approved')}
-                        className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded text-xs font-medium transition"
-                      >
-                        Approve
-                      </button>
-                      <button 
-                        onClick={() => updateDocStatus(doc.id, 'Rejected')}
-                        className="px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded text-xs font-medium transition"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                    <a 
-                      href={downloadUrl} 
-                      download={doc.file_name || 'document'}
-                      className="px-4 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-medium transition whitespace-nowrap"
-                    >
-                      Download
-                    </a>
-                  </div>
-                </div>
-              )})}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
