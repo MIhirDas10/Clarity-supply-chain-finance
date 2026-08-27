@@ -535,11 +535,18 @@ CREATE TABLE IF NOT EXISTS auto_invest_rules (
   min_amount              NUMERIC(14, 2) NOT NULL DEFAULT 0,
   max_amount              NUMERIC(14, 2),               -- NULL = no upper limit
   min_risk_rating         TEXT NOT NULL DEFAULT 'Rating C', -- Rating A/B/C; C accepts any rating
+  sector                  TEXT,                         -- NULL = fund any sector
   max_capital_per_invoice NUMERIC(14, 2) NOT NULL,
   is_active               BOOLEAN NOT NULL DEFAULT TRUE,
   created_at              TIMESTAMPTZ DEFAULT NOW(),
   updated_at              TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Added after the table already existed on the shared database, so it needs
+-- its own ALTER as well as the column above (CREATE TABLE IF NOT EXISTS will
+-- not touch a table that is already there). Existing rules keep sector NULL,
+-- which the engine reads as "any sector" - so nobody's rules change meaning.
+ALTER TABLE auto_invest_rules ADD COLUMN IF NOT EXISTS sector TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_auto_invest_rules_funder ON auto_invest_rules(funder_id);
 

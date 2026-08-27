@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const mockFunders = [
-  { id: 'F-1', name: 'BRAC Bank' },
-  { id: 'F-2', name: 'IDLC Finance' },
-  { id: 'F-3', name: 'City Bank NBFI' },
-];
+import { useAuth } from '../auth/AuthContext.jsx';
 
 const RATINGS = ['Rating A', 'Rating B', 'Rating C'];
 
@@ -12,26 +7,54 @@ function formatTaka(amount) {
   return '৳ ' + Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const emptyForm = { min_amount: '', max_amount: '', min_risk_rating: 'Rating B', max_capital_per_invoice: '' };
+// sector '' means "any sector" - the server stores that as NULL.
+const emptyForm = { min_amount: '', max_amount: '', min_risk_rating: 'Rating B', sector: '', max_capital_per_invoice: '' };
 
 const AutoInvestRules = () => {
-  const [funder, setFunder] = useState(mockFunders[0]);
+  const { user } = useAuth();
   const [rules, setRules] = useState([]);
+  const [sectors, setSectors] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState(null);
   const [error, setError] = useState('');
 
+  // A rule spends the signed-in funder's own wallet, so the funder is taken
+  // from the session - never picked from a list. This page used to post
+  // against a hardcoded "F-1 BRAC Bank", which meant a logged-in funder was
+  // quietly creating rules on someone else's account.
+  const funder = user?.role === 'funder' ? { id: `F-${user.id}`, name: user.business_name } : null;
+
+  // Every /api route sits behind requireAuth, so a request without this
+  // header comes back 401 and the page renders nothing at all.
+  const authHeaders = () => {
+    const token = localStorage.getItem('clarity_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const loadRules = async (funderId) => {
-    const res = await fetch(`/api/auto-invest/rules?funder_id=${funderId}`);
+    const res = await fetch(`/api/auto-invest/rules?funder_id=${funderId}`, { headers: authHeaders() });
+    if (!res.ok) {
+      setError('Could not load your rules.');
+      return;
+    }
     setRules(await res.json());
   };
 
   useEffect(() => {
+    if (!funder) return;
     loadRules(funder.id);
     setRunResult(null);
-  }, [funder]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [funder?.id]);
+
+  useEffect(() => {
+    fetch('/api/auto-invest/sectors', { headers: authHeaders() })
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setSectors)
+      .catch(() => setSectors([]));
+  }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -45,7 +68,7 @@ const AutoInvestRules = () => {
     try {
       const res = await fetch('/api/auto-invest/rules', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, funder_id: funder.id, funder_name: funder.name }),
       });
       const data = await res.json();
@@ -62,14 +85,14 @@ const AutoInvestRules = () => {
   const toggleActive = async (rule) => {
     await fetch(`/api/auto-invest/rules/${rule.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_active: !rule.is_active }),
     });
     loadRules(funder.id);
   };
 
   const deleteRule = async (id) => {
-    await fetch(`/api/auto-invest/rules/${id}`, { method: 'DELETE' });
+    await fetch(`/api/auto-invest/rules/${id}`, { method: 'DELETE', headers: authHeaders() });
     loadRules(funder.id);
   };
 
@@ -79,38 +102,51 @@ const AutoInvestRules = () => {
     try {
       const res = await fetch('/api/auto-invest/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ funder_id: funder.id }),
       });
       setRunResult(await res.json());
+      loadRules(funder.id);
     } finally {
       setRunning(false);
     }
   };
 
+  // Nothing on this page is meaningful without a funder account behind it.
+  if (!funder) {
+    return (
+      <div className="p-8 bg-slate-50 min-h-screen font-sans">
+        <div className="max-w-5xl mx-auto bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+          <h1 className="text-2xl font-bold text-slate-900">Auto-Invest Rules</h1>
+          <p className="text-slate-500 mt-2">Sign in with a funder account to set up auto-invest rules.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 bg-slate-50 min-h-screen font-sans">
       <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Auto-Invest Rules</h1>
             <p className="text-slate-500 mt-1">Set standing criteria once - the engine funds any matching invoice from your wallet automatically.</p>
           </div>
-          <select
-            value={funder.id}
-            onChange={(e) => setFunder(mockFunders.find((f) => f.id === e.target.value))}
-            className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-          >
-            {mockFunders.map((f) => (
-              <option key={f.id} value={f.id}>{f.name}</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+            <span className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-900 text-white text-sm font-semibold uppercase">
+              {(funder.name || '?').charAt(0)}
+            </span>
+            <div className="leading-tight">
+              <p className="text-xs text-slate-500">Signed in as</p>
+              <p className="text-sm font-semibold text-slate-900">{funder.name}</p>
+            </div>
+          </div>
         </div>
 
         <form onSubmit={handleCreate} className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">New rule</h2>
           {error && <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded border border-red-200">{error}</div>}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Min amount (৳)</label>
               <input type="number" min="0" value={form.min_amount}
@@ -129,6 +165,15 @@ const AutoInvestRules = () => {
                 onChange={(e) => setForm({ ...form, min_risk_rating: e.target.value })}
                 className="w-full border border-slate-300 rounded p-2">
                 {RATINGS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Sector</label>
+              <select value={form.sector}
+                onChange={(e) => setForm({ ...form, sector: e.target.value })}
+                className="w-full border border-slate-300 rounded p-2">
+                <option value="">Any sector</option>
+                {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
@@ -161,6 +206,7 @@ const AutoInvestRules = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Amount range</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Min rating</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Sector</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Cap / invoice</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
@@ -173,6 +219,9 @@ const AutoInvestRules = () => {
                       {formatTaka(rule.min_amount)} – {rule.max_amount ? formatTaka(rule.max_amount) : 'No limit'}
                     </td>
                     <td className="px-6 py-3 text-sm text-slate-900">{rule.min_risk_rating}</td>
+                    <td className="px-6 py-3 text-sm text-slate-900">
+                      {rule.sector || <span className="text-slate-400">Any sector</span>}
+                    </td>
                     <td className="px-6 py-3 text-sm text-right text-slate-900">{formatTaka(rule.max_capital_per_invoice)}</td>
                     <td className="px-6 py-3 text-sm">
                       <button onClick={() => toggleActive(rule)}
@@ -203,7 +252,10 @@ const AutoInvestRules = () => {
                 <p className="text-sm font-medium text-emerald-700 mb-1">Funded {runResult.funded.length} invoice(s):</p>
                 <ul className="text-sm text-slate-600 list-disc pl-5">
                   {runResult.funded.map((f) => (
-                    <li key={f.invoice_id}>Invoice #{f.invoice_id} — {formatTaka(f.amount)}</li>
+                    <li key={f.invoice_id}>
+                      Invoice #{f.invoice_id} — {formatTaka(f.amount)}
+                      {f.sector && <span className="text-slate-400"> · {f.sector}</span>}
+                    </li>
                   ))}
                 </ul>
               </div>
