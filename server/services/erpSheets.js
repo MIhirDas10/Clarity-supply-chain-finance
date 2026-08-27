@@ -78,6 +78,8 @@ module.exports = {
   configured: sheets.configured,
   oauthState: sheets.oauthState,
   accessToken: sheets.accessToken,
+  googleClientId: sheets.clientId,
+  googleClientSecret: sheets.clientSecret,
   GOOGLE_SHEETS_SCOPE: sheets.GOOGLE_SHEETS_SCOPE,
 
   syncInvoiceToSheet,

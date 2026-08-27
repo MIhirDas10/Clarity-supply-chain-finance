@@ -20,8 +20,14 @@ require('dotenv').config({ path: path.join(__dirname, '../.env'), override: true
 const pool = require('../db');
 
 const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim() || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim() || '';
+
+function clientId() {
+  return (process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim();
+}
+
+function clientSecret() {
+  return (process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim();
+}
 
 function googleRequest(method, url, body, token) {
   return new Promise((resolve, reject) => {
@@ -43,7 +49,7 @@ function googleRequest(method, url, body, token) {
   });
 }
 
-function configured() { return Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET); }
+function configured() { return Boolean(clientId() && clientSecret()); }
 
 function calendarDate(value) {
   if (value instanceof Date) {
@@ -69,7 +75,7 @@ function eventPayload(invoice, kind) {
 async function accessToken(connection) {
   if (connection.access_token && connection.expires_at && new Date(connection.expires_at).getTime() > Date.now() + 60000) return connection.access_token;
   if (!connection.refresh_token) return connection.access_token;
-  const body = new URLSearchParams({ client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET, refresh_token: connection.refresh_token, grant_type: 'refresh_token' });
+  const body = new URLSearchParams({ client_id: clientId(), client_secret: clientSecret(), refresh_token: connection.refresh_token, grant_type: 'refresh_token' });
   const token = await new Promise((resolve, reject) => {
     const request = https.request({ hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body.toString()) } }, (response) => { let data = ''; response.on('data', (chunk) => { data += chunk; }); response.on('end', () => response.statusCode >= 400 ? reject(new Error(`Google token refresh failed: ${data}`)) : resolve(JSON.parse(data))); });
     request.on('error', reject); request.write(body.toString()); request.end();
@@ -118,4 +124,4 @@ async function reconcileInvoice(invoiceId) {
 
 function oauthState() { return crypto.randomBytes(24).toString('hex'); }
 
-module.exports = { configured, accessToken, googleRequest, oauthState, reconcileInvoice, GOOGLE_SCOPE };
+module.exports = { configured, accessToken, clientId, clientSecret, googleRequest, oauthState, reconcileInvoice, GOOGLE_SCOPE };

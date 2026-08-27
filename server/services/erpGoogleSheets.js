@@ -6,8 +6,6 @@ const pool = require('../db');
 const { clean, money: numberOrNull } = require('./erpUtils');
 
 const GOOGLE_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim() || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim() || '';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 const PAYABLE_HEADER = [
@@ -18,8 +16,16 @@ const SUPPLIER_HEADER = ['Supplier', 'Supplier ID', 'Contact', 'Status', 'Last U
 const SYNC_LOG_HEADER = ['Time', 'Invoice #', 'Action', 'Status', 'Target', 'Result', 'Detail'];
 const STATUS_NAMES = new Set(['Payable', 'Funded', 'Paid', 'Disputed', 'Pending', 'Voided', 'Overdue']);
 
+function clientId() {
+  return (process.env.GOOGLE_CLIENT_ID_ERP || process.env.GOOGLE_CLIENT_ID || '').trim();
+}
+
+function clientSecret() {
+  return (process.env.GOOGLE_CLIENT_SECRET_ERP || process.env.GOOGLE_CLIENT_SECRET || '').trim();
+}
+
 function configured() {
-  return Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+  return Boolean(clientId() && clientSecret());
 }
 
 function oauthState() {
@@ -96,8 +102,8 @@ async function accessToken(conn) {
   if (!conn.refresh_token) return conn.access_token;
 
   const token = await tokenRequest(new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    client_secret: GOOGLE_CLIENT_SECRET,
+    client_id: clientId(),
+    client_secret: clientSecret(),
     refresh_token: conn.refresh_token,
     grant_type: 'refresh_token',
   }));
@@ -277,6 +283,8 @@ module.exports = {
   GOOGLE_SHEETS_SCOPE,
   PAYABLE_HEADER,
   accessToken,
+  clientId,
+  clientSecret,
   configured,
   createTemplate,
   deletePayable,

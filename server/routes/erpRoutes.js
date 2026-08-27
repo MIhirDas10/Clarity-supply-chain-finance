@@ -167,7 +167,7 @@ router.get('/connect', async (req, res) => {
      ON CONFLICT (user_id, provider) DO UPDATE SET oauth_state=EXCLUDED.oauth_state, updated_at=NOW()`,
     [req.user.id, state]);
   const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID, redirect_uri: redirectUri, response_type: 'code',
+    client_id: erp.googleClientId(), redirect_uri: redirectUri, response_type: 'code',
     access_type: 'offline', prompt: 'consent', scope: erp.GOOGLE_SHEETS_SCOPE, state,
   });
   res.json({ authorization_url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
@@ -180,7 +180,7 @@ async function oauthCallback(req, res) {
   const conn = await pool.query('SELECT * FROM erp_connections WHERE oauth_state = $1', [state]);
   if (!conn.rowCount) return res.status(400).send('Invalid or expired OAuth state');
   const redirectUri = erpRedirectUri(req);
-  const tokenBody = new URLSearchParams({ code, client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, redirect_uri: redirectUri, grant_type: 'authorization_code' });
+  const tokenBody = new URLSearchParams({ code, client_id: erp.googleClientId(), client_secret: erp.googleClientSecret(), redirect_uri: redirectUri, grant_type: 'authorization_code' });
   try {
     const token = await new Promise((resolve, reject) => {
       const request = https.request({ hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(tokenBody.toString()) } }, (response) => {

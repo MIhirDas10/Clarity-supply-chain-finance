@@ -154,7 +154,7 @@ router.post("/:invoiceId/confirm", async (req, res) => {
        SET status = 'Buyer Confirmed', current_stage = 'Buyer Confirmed', buyer_confirmed_at = NOW(), confirmation_id = $2, updated_at = NOW(),
            risk_score = $3, risk_rating = $4, expected_yield = $5
        WHERE id = $1`,
-      [ure to Cloudinary
+      [
         invoiceId,
         confirmationId,
         riskResult.score,
