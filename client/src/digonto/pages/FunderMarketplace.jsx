@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import FundingModal from '../components/FundingModal';
 
 
