@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 // Who the wallet belongs to is not known until the logged-in user has been
@@ -42,6 +42,10 @@ const FunderWallet = () => {
   // stale funder captured from an old render.
   const refresh = () => setReloadKey((key) => key + 1);
 
+  // Kept as a plain string so the effects below depend on a stable value,
+  // not on the funder object, which is rebuilt on every render.
+  const funderId = funder?.id;
+
   // A deposit sits on Pending until bKash confirms the payment, which
   // happens on their side, not ours - so there is no event to listen for.
   const hasPendingDeposit = (wallet?.transactions || []).some(
@@ -75,17 +79,16 @@ const FunderWallet = () => {
     if (!funder) return;
     loadWallet(funder.id, funder.name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [funder, reloadKey]);
+  }, [funder?.id, funder?.name, reloadKey]);
 
   // Auto-refresh, but only while a deposit is actually waiting on bKash.
   // Once everything has settled the polling stops by itself, so an idle
   // wallet page is not sitting there hitting the server forever.
   useEffect(() => {
-    if (!funder || !hasPendingDeposit) return;
+    if (!funderId || !hasPendingDeposit) return;
     const timer = setInterval(refresh, 5000);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasPendingDeposit, funder?.id]);
+  }, [hasPendingDeposit, funderId]);
 
   // Paying happens in another tab (bKash's checkout), so coming back to
   // this one is the moment the balance is most likely to be out of date.

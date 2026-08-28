@@ -70,6 +70,7 @@ app.use('/api', requireAuth);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payouts', payoutRoutes);
+app.use('/api/wallet', walletRoutes);
 app.use('/api/auto-invest', autoInvestRoutes);
 // Ameet - Cash Flow Forecast Engine
 app.use('/api/cashflow', cashflowRoutes);
