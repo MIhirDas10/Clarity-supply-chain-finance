@@ -11,8 +11,7 @@ function formatTaka(amount) {
 
 const FunderWallet = () => {
   const { user } = useAuth();
-  const [funders, setFunders] = useState([]);
-  const [funder, setFunder] = useState(null);
+  const funder = user ? { id: `F-${user.id}`, name: user.business_name } : null;
   const [wallet, setWallet] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [amount, setAmount] = useState('');
@@ -22,33 +21,9 @@ const FunderWallet = () => {
   const [message, setMessage] = useState('');
   const [manualIds, setManualIds] = useState({}); // { [transactionId]: typed invoice id }
   const [confirmingRef, setConfirmingRef] = useState(null);
-  const [bankQuery, setBankQuery] = useState('');
-  const [bankListOpen, setBankListOpen] = useState(false);
-  const bankBoxRef = useRef(null);
 
-  // A logged-in funder always acts as themselves - they can only deposit into
-  // their own wallet, so there is nothing for them to pick. The bank list is
-  // only a stand-in identity for when nobody is signed in as a funder.
-  const isFunder = user?.role === 'funder';
 
-  // Filters as you type; matches anywhere in the name, not just the start,
-  // so typing "city" finds "The City Bank PLC" - a plain <select> only
-  // jumps on the first letter, which is what "search isn't working" meant.
-  const filteredBanks = bankQuery.trim()
-    ? funders.filter((f) => (f.name || '').toLowerCase().includes(bankQuery.trim().toLowerCase()))
-    : funders;
 
-  // Closes the dropdown when a click lands anywhere outside it.
-  useEffect(() => {
-    const closeOnOutsideClick = (e) => {
-      if (bankBoxRef.current && !bankBoxRef.current.contains(e.target)) {
-        setBankListOpen(false);
-        setBankQuery('');
-      }
-    };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
-  }, []);
 
   const authHeaders = () => {
     const token = localStorage.getItem('clarity_token');
@@ -74,26 +49,6 @@ const FunderWallet = () => {
   );
 
   useEffect(() => {
-    // Fetch dynamic funders (Banks in Bangladesh)
-    const fetchFunders = async () => {
-      try {
-        const response = await fetch('/api/auth/banks');
-        const data = await response.json();
-        if (data && data.length > 0) {
-          setFunders(data);
-          
-          // Use logged in user if available, otherwise first bank
-          if (user?.role === 'funder') {
-            setFunder({ id: `F-${user.id}`, name: user.business_name });
-          } else {
-            setFunder(data[0]);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching funders:', error);
-      }
-    };
-
     // Check KYB status
     const checkKybStatus = async () => {
       try {
@@ -111,9 +66,8 @@ const FunderWallet = () => {
       }
     };
 
-    fetchFunders();
     checkKybStatus();
-  }, [user?.id, user?.business_name, user?.role]);
+  }, []);
 
   // Nothing is fetched until the funder is known - see the note at the top
   // of this file for why loading "whoever is first" was actively wrong.
@@ -240,54 +194,15 @@ const FunderWallet = () => {
             <h1 className="text-3xl font-bold text-slate-900">Funder Wallet</h1>
             <p className="text-slate-500 mt-1">Top up your wallet via bKash, then fund invoices from the balance.</p>
           </div>
-          {isFunder ? (
-            // Signed in as a funder: show who this wallet belongs to, as plain
-            // text. It used to sit in an editable-looking box, which made an
-            // account name read like a half-broken search field.
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
-              <span className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-900 text-white text-sm font-semibold uppercase">
-                {(funder?.name || '?').charAt(0)}
-              </span>
-              <div className="leading-tight">
-                <p className="text-xs text-slate-500">Signed in as</p>
-                <p className="text-sm font-semibold text-slate-900">{funder?.name || 'Loading...'}</p>
-              </div>
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+            <span className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-900 text-white text-sm font-semibold uppercase">
+              {(funder?.name || '?').charAt(0)}
+            </span>
+            <div className="leading-tight">
+              <p className="text-xs text-slate-500">Signed in as</p>
+              <p className="text-sm font-semibold text-slate-900">{funder?.name || 'Loading...'}</p>
             </div>
-          ) : (
-            funders.length > 0 && (
-              <div className="relative w-full sm:w-64" ref={bankBoxRef}>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Acting as</label>
-                <input
-                  type="text"
-                  value={bankListOpen ? bankQuery : (funder?.name || '')}
-                  onChange={(e) => { setBankQuery(e.target.value); setBankListOpen(true); }}
-                  onFocus={() => { setBankQuery(''); setBankListOpen(true); }}
-                  placeholder="Search bank..."
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
-                {bankListOpen && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg">
-                    {filteredBanks.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-slate-400">No bank matches "{bankQuery}"</p>
-                    ) : (
-                      filteredBanks.map((f) => (
-                        <button
-                          key={f.id}
-                          type="button"
-                          onClick={() => { setFunder(f); setBankQuery(''); setBankListOpen(false); }}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition ${
-                            f.id === funder?.id ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-700'
-                          }`}
-                        >
-                          {f.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          )}
+          </div>
         </div>
 
         {!kybSubmitted && (

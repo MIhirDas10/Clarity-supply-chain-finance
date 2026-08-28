@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import FundingModal from '../components/FundingModal';
+
 
 const mockFunders = [
   { id: 'F-1', name: 'BRAC Bank' },
@@ -10,8 +12,8 @@ const mockFunders = [
 const FunderMarketplace = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [funders, setFunders] = useState([]);
-  const [selectedFunder, setSelectedFunder] = useState(null);
+  const { user } = useAuth();
+  const selectedFunder = user ? { id: `F-${user.id}`, name: user.business_name } : null;
   const [filterRating, setFilterRating] = useState('All');
   const [kybSubmitted, setKybSubmitted] = useState(true);
   
@@ -35,20 +37,6 @@ const FunderMarketplace = () => {
   }, [filterRating]);
 
   useEffect(() => {
-    // Fetch dynamic funders (Banks in Bangladesh)
-    const fetchFunders = async () => {
-      try {
-        const response = await fetch('/api/auth/banks');
-        const data = await response.json();
-        if (data && data.length > 0) {
-          setFunders(data);
-          setSelectedFunder(data[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching funders:', error);
-      }
-    };
-
     // Check KYB status
     const checkKybStatus = async () => {
       try {
@@ -66,7 +54,6 @@ const FunderMarketplace = () => {
       }
     };
 
-    fetchFunders();
     checkKybStatus();
   }, []);
 
@@ -89,22 +76,14 @@ const FunderMarketplace = () => {
             <h1 className="text-3xl font-bold text-slate-900">Marketplace</h1>
             <p className="text-slate-500 mt-1">Discover and fund high-yield invoice discounting opportunities.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">Acting as:</span>
-            {selectedFunder && (
-              <select 
-                value={selectedFunder.id}
-                onChange={(e) => {
-                  const f = funders.find(x => x.id === e.target.value);
-                  if (f) setSelectedFunder(f);
-                }}
-                className="border border-slate-300 rounded p-2 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-              >
-                {funders.map(f => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            )}
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+            <span className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-900 text-white text-sm font-semibold uppercase">
+              {(selectedFunder?.name || '?').charAt(0)}
+            </span>
+            <div className="leading-tight">
+              <p className="text-xs text-slate-500">Signed in as</p>
+              <p className="text-sm font-semibold text-slate-900">{selectedFunder?.name || 'Loading...'}</p>
+            </div>
           </div>
         </div>
 

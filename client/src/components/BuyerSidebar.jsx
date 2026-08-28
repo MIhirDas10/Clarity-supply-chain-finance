@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   LogOut,
   Home,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext.jsx";
 
@@ -41,6 +42,7 @@ const buyerItems = [
   { label: "Repayment & Settlement", to: "/buyer/settlements", icon: WalletCards, built: true },
   { label: "Repayment Calendar", to: "/buyer/calendar", icon: CalendarDays, built: true },
   { label: "ERP / Accounting Sync", to: "/buyer/erp", icon: FileSpreadsheet, built: true },
+  { label: "Settings", to: "/buyer/settings", icon: Settings, built: true },
 ];
 
 export default function BuyerSidebar() {

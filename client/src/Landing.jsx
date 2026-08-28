@@ -50,10 +50,16 @@ export default function Landing() {
 
         <div className="flex items-center gap-9 max-md:gap-3">
           <div className="hidden items-center gap-10 md:flex">
-            <button className="cursor-pointer text-[16px] font-semibold text-[#AEB5C2] transition-colors hover:text-white">
+            <button 
+              onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+              className="cursor-pointer text-[16px] font-semibold text-[#AEB5C2] transition-colors hover:text-white"
+            >
               Features
             </button>
-            <button className="cursor-pointer text-[16px] font-semibold text-[#AEB5C2] transition-colors hover:text-white">
+            <button 
+              onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
+              className="cursor-pointer text-[16px] font-semibold text-[#AEB5C2] transition-colors hover:text-white"
+            >
               About
             </button>
           </div>
@@ -132,7 +138,7 @@ export default function Landing() {
 
 
 
-      <section className="relative z-10 px-4 py-24 md:py-32">
+      <section id="features" className="relative z-10 px-4 py-24 md:py-32">
         <div className="mx-auto max-w-[1168px]">
           <div className="mb-16 flex flex-col items-center text-center">
             <h2 className="mb-5 text-3xl font-bold tracking-tight md:text-5xl" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "-0.02em" }}>
@@ -178,6 +184,34 @@ export default function Landing() {
                </div>
                <h3 className="mb-3 text-2xl font-bold text-white" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Enterprise-grade Security</h3>
                <p className="text-[#AEB7C7] max-w-md leading-relaxed">Your financial data is protected by SOC2 Type II certified infrastructure, end-to-end encryption, and continuous monitoring.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" className="relative z-10 px-4 py-20 md:py-24 border-t border-white/5 bg-[#03070D]">
+        <div className="mx-auto max-w-[1168px]">
+          <div className="mb-16 flex flex-col items-center text-center">
+            <h2 className="mb-5 text-3xl font-bold tracking-tight md:text-5xl" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "-0.02em" }}>
+              What we are <span className="bg-gradient-to-r from-[#F0CF88] to-[#D6A44C] bg-clip-text text-transparent">doing here</span>
+            </h2>
+            <p className="max-w-[600px] text-center text-[17px] leading-[1.6] text-[#AEB7C7]">
+              Clarity is transforming how businesses interact, bringing liquidity and transparency to global supply chains.
+            </p>
+          </div>
+          
+          <div className="flex w-full justify-center">
+            <div className="w-full max-w-[800px] overflow-hidden rounded-[24px] border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)] bg-black">
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute left-0 top-0 h-full w-full"
+                  src="https://www.youtube.com/embed/ACLOzAxIfbU"
+                  title="What we are doing here"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
             </div>
           </div>
         </div>
