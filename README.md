@@ -1,45 +1,71 @@
-# Clarity - B2B Invoice Discounting and Supply Chain Finance Platform
+# Clarity - Supply Chain Finance & B2B Invoice Discounting
 
-## Overview
-Small and medium-sized enterprises (SMEs) routinely wait 90 to 120 days to be paid on confirmed B2B invoices. This long payment cycle locks up working capital and stalls payroll, procurement, and growth. Clarity is a trusted, transparent marketplace that connects suppliers with funders willing to finance verified receivables, providing a single place to run the full financing lifecycle with proper confirmation, risk assessment, and settlement.
+Clarity is a comprehensive B2B marketplace designed to solve a critical problem for SMEs: waiting 90 to 120 days for invoice payments. By bridging the gap between suppliers and capital providers, Clarity unlocks liquidity through verified receivable financing.
 
-## Features
+## 🌟 Key Capabilities
 
-### Supplier Onboarding & Invoice Origination
-- **Invoice Upload with OCR & Cloud Storage:** Upload invoice PDFs/images to Cloudinary; OCR extracts key fields and catches duplicate or invalid entries before financing begins.
-- **Invoice Status Pipeline:** Guarded state machine (Submitted -> Buyer Confirmed -> Funded -> Payout Initiated -> Completed) with in-app notifications and email alerts.
-- **Real-Time Discount Rate Calculator:** See exact payouts before accepting early funding based on the buyer's credit score.
-- **Cash Flow Forecast Engine:** 30/60/90-day expected-inflow view built from real invoice and planned-expense records.
+### For Suppliers
+- **Seamless Onboarding & Invoice Origination:** Upload invoice PDFs with intelligent OCR data extraction.
+- **Transparent Workflows:** Track invoices through a secure state machine (Submitted -> Buyer Confirmed -> Funded -> Payout).
+- **Cash Flow Forecasting:** Predictive 30/60/90-day cash flow modeling based on confirmed invoices and expenses.
+- **Real-Time Discount Rates:** Preview exact payouts prior to accepting funding using dynamic risk-based pricing.
 
-### Buyer Confirmation & Payables Management
-- **Invoice Confirmation & Digital Acknowledgment:** Buyers confirm, request corrections, or dispute invoices. Confirmation gates marketplace eligibility.
-- **Supplier Health & Distress-Signal Analytics:** Weighted supplier health score with Healthy/Watch/Distress bands.
-- **Dispute Filing & Invoice Freeze:** Disputes atomically freeze invoices and remove them from funding until resolved.
-- **Buyer-Funded Early Payment:** Buyers with surplus cash can pay suppliers early at a negotiated discount without a third-party funder.
+### For Buyers
+- **Digital Payables Management:** Review, approve, or dispute supplier invoices digitally.
+- **Dynamic Discounting:** Utilize surplus cash to self-fund early payments directly to suppliers at negotiated discounts.
+- **Supplier Health Monitoring:** Analyze supplier stability with integrated distress-signal analytics.
 
-### Funding Marketplace, Risk & Settlement
-- **Invoice Marketplace with First-Come-First-Funded Locking:** Database row-level claim lock prevents double-funding.
-- **Know Your Business (KYB):** Admin review for trade licenses, TIN certificates, and bank account details.
-- **Investor Portfolio & Analytics:** Deployed capital tracking, projected vs. realized returns, maturity schedule, and adverse-scenario stress simulation.
-- **Buyer Credit Scoring + Risk-Based Pricing:** Explainable buyer credit score that drives discount pricing, credit limits, and marketplace confidence.
-- **Auto-Invest Rules:** Standing criteria to automatically fund matching invoices.
-- **Wallet Funding:** Deposit capital and fund invoices through a reconciled wallet ledger.
-- **Repayment & Settlement Engine:** Collects buyer repayment and runs the funder-return / platform-fee / supplier waterfall in one transaction.
-- **Calendar Sync:** Syncs due and maturity dates with reminders to Google Calendar.
+### For Funders
+- **Exclusive Marketplace:** Access a premium pool of buyer-verified invoices.
+- **First-Come-First-Funded Security:** Row-level database locking ensures invoices can never be double-funded.
+- **Automated Investment Strategies:** Configure rules for hands-off portfolio growth.
+- **Risk Analytics:** Leverage buyer credit scoring, maturity schedules, and adverse-scenario stress testing.
 
-## System Architecture & Technologies
+## 🏗️ System Architecture
 
-- **Frontend:** React (Vite), Tailwind CSS, Lucide React icons
-- **Backend:** Node.js, Express
-- **Database:** Supabase (managed PostgreSQL) with raw `pg` SQL (No ORM)
-- **Authentication:** JWT (jsonwebtoken), bcrypt password hashing, Role-based Access Control (Supplier, Buyer, Funder, Admin)
-- **External APIs:**
-  - Cloudinary (Invoice document storage)
-  - Nodemailer / Gmail SMTP (Email notifications)
-  - bKash / UddoktaPay (Deposits)
-  - Google Calendar API (Reminders)
+Clarity's architecture is designed for security, concurrent transaction handling, and scalability.
 
-## Technical Highlights
-- **Robust Concurrency Control:** Row-level database locking (`SELECT ... FOR UPDATE`) guarantees race condition prevention in the invoice funding marketplace.
-- **Guarded State Machines:** Strict status pipelines enforce business rules across all lifecycle events of an invoice.
-- **Dynamic Discounting Engine:** Calculates complex pricing logic with safety checks using PostgreSQL database transactions.
+```mermaid
+graph TD;
+    subgraph Frontend
+        React[React / Vite]
+        Tailwind[Tailwind CSS]
+        React --- Tailwind
+    end
+
+    subgraph Backend
+        Node[Node.js / Express API]
+        Auth[JWT Authentication & Role-based Access]
+        Node --- Auth
+    end
+
+    subgraph Database
+        DB[(Supabase PostgreSQL)]
+    end
+
+    subgraph External Integrations
+        Cloudinary[Cloudinary - OCR & Storage]
+        SMTP[Nodemailer - Email]
+        Payment[bKash / UddoktaPay]
+        Calendar[Google Calendar API]
+    end
+
+    React <-->|REST API| Node
+    Node <-->|Raw pg SQL| DB
+    Node --> Cloudinary
+    Node --> SMTP
+    Node --> Payment
+    Node --> Calendar
+```
+
+### Technical Highlights
+- **No-ORM Philosophy:** Leverages raw `pg` SQL for highly optimized queries and absolute control over database operations.
+- **Robust Concurrency Control:** Employs `SELECT ... FOR UPDATE` row-level locks, guaranteeing race-condition prevention in the fast-paced invoice marketplace.
+- **Guarded State Transitions:** Strict status pipelines enforce business logic for all events.
+- **Role-Based Access Control (RBAC):** Distinct privileges for Suppliers, Buyers, Funders, and Admins.
+
+## 🚀 Technologies Used
+- **Frontend:** React, Tailwind CSS, Vite
+- **Backend:** Node.js, Express.js
+- **Database:** Supabase (PostgreSQL)
+- **Security:** JWT, bcrypt
