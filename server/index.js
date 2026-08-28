@@ -39,7 +39,7 @@ const erpRoutes = require('./routes/erpRoutes'); // Mihir (M2 ERP / Google Sheet
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, requireAuthAllowPaused } = require('./middleware/auth');
 const { configured: calendarConfigured } = require('./services/calendarSync');
 
 const app = express();
@@ -61,18 +61,16 @@ app.use('/api/auth', authRoutes);
 app.get('/api/calendar/oauth/callback', calendarRoutes.oauthCallback);
 app.get('/api/erp/oauth/callback', erpRoutes.oauthCallback);
 
-// Every feature API uses the identity established by login. Authentication is
-// mounted after the public auth endpoints so signup and login remain public.
+// Documents are accessible even if the user is paused (e.g. to upload compliance docs)
+app.use('/api/documents', requireAuthAllowPaused, documentRoutes);
+
 app.use('/api', requireAuth);
 
 // Apurba - M1 invoice upload with OCR, M2 dispute filing, plus the payout ledger
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/payouts', payoutRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/wallet', walletRoutes);
 app.use('/api/auto-invest', autoInvestRoutes);
-
 // Ameet - Cash Flow Forecast Engine
 app.use('/api/cashflow', cashflowRoutes);
 
