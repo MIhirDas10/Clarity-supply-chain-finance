@@ -58,7 +58,7 @@ router.post('/signup', async (req, res) => {
     // rounds" is bcrypt's standard cost; higher is slower but harder to crack.
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const initialStatus = role === 'funder' ? 'Pending' : 'Approved';
+    const initialStatus = 'Pending';
 
     const saved = await pool.query(
       `INSERT INTO users (role, business_name, email, phone, password_hash, status, is_paused, approved_at)
