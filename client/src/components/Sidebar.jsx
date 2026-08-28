@@ -26,7 +26,7 @@ const navItems = [
   { label: "Cash Flow", to: "/cashflow", icon: TrendingUp, built: true },           // Ameet
   { label: "Buyer-Funded Offers", to: "/buyer-funded-offers", icon: Banknote, built: true },  // Ameet M2
   { label: "Notifications", to: "/notifications", icon: Bell, built: true },
-  { label: "Settings", to: "/settings", icon: Settings, built: false },
+  { label: "Settings", to: "/settings", icon: Settings, built: true },
 ];
 
 export default function Sidebar() {

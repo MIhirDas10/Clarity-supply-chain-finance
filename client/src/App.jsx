@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
-import { LogOut, ShieldAlert } from "lucide-react";
+import { LogOut, ShieldAlert, Settings as SettingsIcon } from "lucide-react";
 import Sidebar from "./components/Sidebar.jsx";
 import BuyerSidebar from "./components/BuyerSidebar.jsx";
 import FunderSidebar from "./components/FunderSidebar.jsx";
@@ -11,6 +11,7 @@ import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import Login from "./auth/Login.jsx";
 import Signup from "./auth/Signup.jsx";
 import AdminDashboard from "./auth/AdminDashboard.jsx";
+import Settings from "./auth/Settings.jsx";
 
 // Each member's feature page, kept in its own folder with its original code.
 import Dashboard from "./mihir/pages/Dashboard.jsx";              // Mihir  - Invoice Pipeline Tracker
@@ -119,9 +120,16 @@ function AdminLayout({ children }) {
         <span style={{ fontWeight: 700, fontSize: 15 }}>Clarity B2B — Admin</span>
         <div className="flex items-center gap-4">
           <span style={{ fontSize: 13, opacity: 0.8 }}>{user?.business_name}</span>
+          <Link
+            to="/admin/settings"
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+            style={{ fontSize: 13, color: "#fff", background: "none", border: "none", textDecoration: "none" }}
+          >
+            <SettingsIcon size={15} /> Settings
+          </Link>
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 cursor-pointer"
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
             style={{ fontSize: 13, color: "#fff", background: "none", border: "none" }}
           >
             <LogOut size={15} /> Log out
@@ -216,7 +224,7 @@ function App() {
           <Route path="/funder/calendar" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><RepaymentCalendar /></FunderLayout></ProtectedRoute>} />
           <Route path="/funder/credit" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><BuyerCredit /></FunderLayout></ProtectedRoute>} />
           <Route path="/credit" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><BuyerCredit /></SupplierLayout></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Placeholder name="Settings" /></SupplierLayout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute roles={["supplier", "admin"]}><SupplierLayout><Settings /></SupplierLayout></ProtectedRoute>} />
 
           {/* Buyer Routes */}
           <Route path="/buyer" element={<Navigate to="/buyer/dynamic-discounting" replace />} />
@@ -255,6 +263,10 @@ function App() {
           <Route path="/buyer/settlements" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><RepaymentSettlement /></BuyerLayout></ProtectedRoute>} />
           <Route path="/buyer/calendar" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><RepaymentCalendar /></BuyerLayout></ProtectedRoute>} />
           <Route path="/buyer/erp" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><ErpIntegration /></BuyerLayout></ProtectedRoute>} />
+          <Route path="/buyer/settings" element={<ProtectedRoute roles={["buyer", "admin"]}><BuyerLayout><Settings /></BuyerLayout></ProtectedRoute>} />
+
+          <Route path="/funder/settings" element={<ProtectedRoute roles={["funder", "admin"]}><FunderLayout><Settings /></FunderLayout></ProtectedRoute>} />
+          <Route path="/admin/settings" element={<ProtectedRoute roles={["admin"]}><AdminLayout><Settings /></AdminLayout></ProtectedRoute>} />
 
           <Route path="*" element={<RoleHome />} />
         </Routes>

@@ -12,7 +12,7 @@ const funderItems = [
  { label: "Document Vault", to: "/funder/vault", icon: FolderLock },
  { label: "Funder Wallet", to: "/funder/wallet", icon: Wallet },
  { label: "Auto-Invest Rules", to: "/funder/auto-invest", icon: Sparkles },
- { label: "Settings", to: "/funder/settings", icon: Settings, built: false },
+ { label: "Settings", to: "/funder/settings", icon: Settings, built: true },
 ];
 
 export default function FunderSidebar() {

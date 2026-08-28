@@ -308,4 +308,71 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   }
 });
 
+// PUT /api/auth/settings - Update profile (business_name, password)
+router.put('/settings', requireAuth, async (req, res) => {
+  const { business_name, password } = req.body;
+  if (!business_name) {
+    return res.status(400).json({ message: 'business_name is required' });
+  }
+  
+  try {
+    let updateQuery = `UPDATE users SET business_name = $1`;
+    const params = [business_name];
+    
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ message: 'password must be at least 6 characters' });
+      }
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(password, salt);
+      updateQuery += `, password_hash = $2 WHERE id = $3 RETURNING *`;
+      params.push(hash, req.user.id);
+    } else {
+      updateQuery += ` WHERE id = $2 RETURNING *`;
+      params.push(req.user.id);
+    }
+
+    const result = await pool.query(updateQuery, params);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const updatedUser = result.rows[0];
+    const token = issueToken(updatedUser);
+
+    res.json({ 
+      message: 'Settings updated successfully',
+      token,
+      user: {
+        id: updatedUser.id,
+        role: updatedUser.role,
+        business_name: updatedUser.business_name,
+        email: updatedUser.email,
+        status: updatedUser.status
+      }
+    });
+  } catch (err) {
+    console.error('Settings update error:', err);
+    res.status(500).json({ message: 'Server error updating settings' });
+  }
+});
+
+// DELETE /api/auth/settings - Delete own profile
+router.delete('/settings', requireAuth, async (req, res) => {
+  try {
+    const deleted = await pool.query(
+      `DELETE FROM users WHERE id = $1 RETURNING id`,
+      [req.user.id]
+    );
+    if (deleted.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Self Delete Error:', error);
+    res.status(500).json({ message: 'Could not delete your account' });
+  }
+});
+
 module.exports = router;
