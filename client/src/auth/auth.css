@@ -193,11 +193,6 @@
 
 /* ---------- admin approval table ---------- */
 
-.auth-admin-page {
-  padding: 28px;
-  max-width: 1000px;
-}
-
 .auth-admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -217,12 +212,14 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 
 .auth-admin-table td {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border-light);
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .auth-chip {

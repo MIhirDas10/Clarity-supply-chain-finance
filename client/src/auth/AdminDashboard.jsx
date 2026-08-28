@@ -120,7 +120,7 @@ function AdminDashboard() {
   const pending = users.filter((u) => u.status === 'Pending');
 
   return (
-    <div className="auth-admin-page flex flex-col lg:flex-row gap-8 items-start w-full max-w-[1600px]">
+    <div className="auth-admin-page flex flex-col-reverse lg:flex-row gap-8 items-start w-full max-w-[1600px] px-4 py-6 lg:p-8">
       
       {/* Document Viewer Side Panel - Moved to Left per user request */}
       <div className="w-full lg:w-96 shrink-0 lg:sticky top-8">
@@ -236,7 +236,7 @@ function AdminDashboard() {
         </div>
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+      <div style={{ flex: 1, minWidth: 0 }} className="w-full">
         <div className="flex items-center gap-3 mb-1">
           <ShieldCheck size={22} color="#0F172A" />
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -253,7 +253,8 @@ function AdminDashboard() {
         Pending applications ({pending.length})
       </h2>
 
-      <table className="auth-admin-table" style={{ marginBottom: 28 }}>
+      <div className="overflow-x-auto w-full mb-7 pb-2">
+        <table className="auth-admin-table">
         <thead>
           <tr>
             <th>Business</th>
@@ -310,12 +311,14 @@ function AdminDashboard() {
           ))}
         </tbody>
       </table>
+      </div>
 
       <h2 style={{ fontSize: 14, fontWeight: 700, margin: '18px 0 8px' }}>
         All accounts ({users.length})
       </h2>
 
-      <table className="auth-admin-table">
+      <div className="overflow-x-auto w-full pb-2">
+        <table className="auth-admin-table">
         <thead>
           <tr>
             <th>Business</th>
@@ -374,6 +377,7 @@ function AdminDashboard() {
           ))}
         </tbody>
       </table>
+      </div>
       </div>
 
     </div>
