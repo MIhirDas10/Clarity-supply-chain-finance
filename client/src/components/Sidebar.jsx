@@ -50,7 +50,7 @@ export default function Sidebar() {
             className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-sm"
             style={{ backgroundColor: "#0F172A" }}
           >
-            C
+            <img src="/favicon.svg" alt="Clarity Logo" className="w-5 h-5" />
           </div>
           <span
             className="font-semibold text-[15px] tracking-tight"

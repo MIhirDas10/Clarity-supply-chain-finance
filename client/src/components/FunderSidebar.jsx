@@ -28,7 +28,7 @@ export default function FunderSidebar() {
  <aside className="fixed left-0 top-0 bottom-0 w-[250px] flex flex-col z-30 border-r" style={{ backgroundColor: "var(--sidebar-bg)", borderColor: "var(--border)" }}>
  <div className="px-5 pt-5 pb-2">
  <div className="flex items-center gap-2.5 mb-1">
- <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-sm" style={{ backgroundColor: "#0F172A" }}>C</div>
+ <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-sm" style={{ backgroundColor: "#0F172A" }}><img src="/favicon.svg" alt="Clarity Logo" className="w-5 h-5" /></div>
  <span className="font-semibold text-[15px] tracking-tight" style={{ color: "var(--text-primary)" }}>Clarity B2B</span>
  </div>
  <div className="mt-1">
