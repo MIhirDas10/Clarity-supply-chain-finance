@@ -60,7 +60,7 @@ export default function Header() {
 
  {/* Avatar */}
  <div className="ml-1 w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center text-white text-sm font-semibold cursor-pointer">
- A
+ {user?.name?.[0]?.toUpperCase() || 'U'}
  </div>
  </div>
  </header>

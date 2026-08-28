@@ -1,5 +1,5 @@
 const nodemailer = require("nodemailer");
-const supabase = require("../config/supabase");
+const pool = require("../db");
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -43,6 +43,10 @@ function buildEmailHtml({ message, invoiceLink, type }) {
     accent = "#d97706";
     accentBg = "#fef3c7";
     label = "Funding Update";
+  } else if (type === "erp_overdue") {
+    accent = "#d97706";
+    accentBg = "#fef3c7";
+    label = "Overdue Payables";
   }
 
   return `
@@ -71,6 +75,20 @@ function buildEmailHtml({ message, invoiceLink, type }) {
     </div>`;
 }
 
+async function createInAppNotification({ recipient, message, invoiceLink, type }) {
+  try {
+    await pool.query(
+      `INSERT INTO notifications (recipient, message, invoice_link, type)
+       VALUES ($1, $2, $3, $4)`,
+      [recipient || "Supplier", message, invoiceLink || null, type || "info"],
+    );
+    return true;
+  } catch (error) {
+    console.error("Failed to create in-app notification:", error.message);
+    return false;
+  }
+}
+
 exports.sendNotification = async ({
   recipient,
   message,
@@ -78,22 +96,14 @@ exports.sendNotification = async ({
   type,
   emailSubject,
 }) => {
+  const notificationCreated = await createInAppNotification({
+    recipient,
+    message,
+    invoiceLink,
+    type,
+  });
+
   try {
-    // In-App Notification Record
-    const { error: dbError } = await supabase.from("notifications").insert([
-      {
-        recipient: recipient || "Supplier",
-        message,
-        invoice_link: invoiceLink,
-        type: type || "info",
-      },
-    ]);
-
-    if (dbError) {
-      console.error("Failed to create in-app notification:", dbError);
-      throw dbError;
-    }
-
     const emailOptions = {
       from: `Clarity B2B <${process.env.EMAIL_USER || "clarityb2b.demo@gmail.com"}>`,
       to: recipient || "supplier@example.com",
@@ -104,11 +114,19 @@ exports.sendNotification = async ({
     if (process.env.EMAIL_PASS) {
       await transporter.sendMail(emailOptions);
       console.log(`Notification email sent to ${emailOptions.to}`);
+      return { notificationCreated, emailSent: true, simulated: false };
     } else {
       console.log(`Simulated email to ${emailOptions.to}: ${message}`);
+      return { notificationCreated, emailSent: false, simulated: true };
     }
   } catch (error) {
     console.error("Notification Service Error:", error.message);
+    return {
+      notificationCreated,
+      emailSent: false,
+      simulated: false,
+      error: error.message,
+    };
   }
 };
 exports.buildEmailHtml = buildEmailHtml;

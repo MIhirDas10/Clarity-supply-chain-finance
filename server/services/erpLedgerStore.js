@@ -143,10 +143,42 @@ function validatePayable(data, requireCore) {
 
 async function invoiceWithSupplier(invoiceId) {
   return one(
-    `SELECT i.*, COALESCE(s.name, 'Supplier #' || i.supplier_id) AS supplier_name
-     FROM invoices i LEFT JOIN suppliers s ON s.id::TEXT = i.supplier_id
+    `SELECT i.*,
+            COALESCE(account_user.business_name, named_user.business_name, supplier.name, alias.name, 'Supplier #' || i.supplier_id) AS supplier_name
+     FROM invoices i
+     LEFT JOIN users account_user
+       ON account_user.role='supplier' AND account_user.id::text = i.supplier_id
+     LEFT JOIN suppliers supplier
+       ON supplier.id::text = i.supplier_id
+     LEFT JOIN supplier_names alias
+       ON alias.supplier_id = i.supplier_id
+     LEFT JOIN users named_user
+       ON named_user.role='supplier'
+      AND supplier.name IS NOT NULL
+      AND LOWER(named_user.business_name) = LOWER(supplier.name)
      WHERE i.id::TEXT = $1`,
     [String(invoiceId)],
+  );
+}
+
+async function invoicesWithSuppliersForBuyer(buyerName) {
+  return rows(
+    `SELECT i.*,
+            COALESCE(account_user.business_name, named_user.business_name, supplier.name, alias.name, 'Supplier #' || i.supplier_id) AS supplier_name
+     FROM invoices i
+     LEFT JOIN users account_user
+       ON account_user.role='supplier' AND account_user.id::text = i.supplier_id
+     LEFT JOIN suppliers supplier
+       ON supplier.id::text = i.supplier_id
+     LEFT JOIN supplier_names alias
+       ON alias.supplier_id = i.supplier_id
+     LEFT JOIN users named_user
+       ON named_user.role='supplier'
+      AND supplier.name IS NOT NULL
+      AND LOWER(named_user.business_name) = LOWER(supplier.name)
+     WHERE LOWER(i.buyer_name)=LOWER($1) AND i.buyer_name IS NOT NULL
+     ORDER BY i.id`,
+    [buyerName],
   );
 }
 
@@ -177,11 +209,17 @@ async function connectionForUser(userId) {
   );
 }
 
-async function notifyBuyer(buyerName, message, type = 'erp_alert') {
+async function notifyBuyer(buyerName, message, type = 'erp_alert', recipientEmail = null) {
   try {
     const buyer = await one("SELECT email FROM users WHERE role='buyer' AND LOWER(business_name)=LOWER($1) LIMIT 1", [buyerName]);
+    const recipient = recipientEmail || buyer?.email;
+    if (!recipient) {
+      console.error(`ERP notification skipped: no email found for buyer ${buyerName}`);
+      return null;
+    }
+
     await notificationService.sendNotification({
-      recipient: buyer?.email || process.env.BUYER_EMAIL || 'buyer@clarity.io',
+      recipient,
       message,
       invoiceLink: '/buyer/erp',
       type,
@@ -235,9 +273,15 @@ async function savePlatformLedger(buyerName, invoiceId, fields) {
        supplier_name=EXCLUDED.supplier_name,
        amount=EXCLUDED.amount,
        payout_amount=EXCLUDED.payout_amount,
+       tax_amount=EXCLUDED.tax_amount,
        due_date=EXCLUDED.due_date,
        erp_status=EXCLUDED.erp_status,
        source='platform',
+       note=EXCLUDED.note,
+       po_number=EXCLUDED.po_number,
+       gl_code=EXCLUDED.gl_code,
+       department=EXCLUDED.department,
+       payment_terms=EXCLUDED.payment_terms,
        synced_to_google=FALSE,
        updated_at=NOW()
      RETURNING *`,
@@ -274,6 +318,61 @@ async function removeLocalLedger(buyerName, invoiceId, fields) {
     status: 'success',
   });
   return old?.sheet_row || null;
+}
+
+async function ledgerRowsForBuyer(buyerName) {
+  return rows(
+    `SELECT invoice_id, invoice_number, supplier_name, amount, payout_amount,
+            tax_amount, TO_CHAR(due_date,'YYYY-MM-DD') AS due_date, erp_status,
+            note, po_number, gl_code, department, payment_terms
+     FROM erp_ledger
+     WHERE LOWER(buyer_name)=LOWER($1)
+     ORDER BY updated_at DESC`,
+    [buyerName],
+  );
+}
+
+async function markLedgerRowsSynced(rowNumbers) {
+  for (const row of rowNumbers) {
+    await pool.query(
+      'UPDATE erp_ledger SET sheet_row=$1, synced_to_google=TRUE, updated_at=NOW() WHERE invoice_id=$2',
+      [row.rowNumber, String(row.invoiceId)],
+    );
+  }
+}
+
+async function pushGoogleLedgerSnapshot(conn, buyerName) {
+  if (!googleReady(conn)) return { pushed: false };
+
+  const ledgerRows = await ledgerRowsForBuyer(buyerName);
+  const writableRows = ledgerRows.filter((row) => clean(row.invoice_number));
+
+  try {
+    const positions = await sheets.replacePayables(conn, writableRows.map(ledgerFields));
+    const rowNumbers = positions.map((item, index) => ({
+      invoiceId: writableRows[index].invoice_id,
+      rowNumber: item.rowNumber,
+    }));
+
+    await markGoogleOk(conn);
+    await markLedgerRowsSynced(rowNumbers);
+    await logSync({
+      buyerName,
+      action: 'mirror',
+      target: 'google',
+      status: 'success',
+      detail: `${writableRows.length} payable row(s) mirrored`,
+    });
+    return { pushed: true, count: writableRows.length };
+  } catch (error) {
+    await pool.query(
+      'UPDATE erp_ledger SET synced_to_google=FALSE WHERE LOWER(buyer_name)=LOWER($1)',
+      [buyerName],
+    ).catch(() => {});
+    await logSync({ buyerName, action: 'mirror', target: 'google', status: 'failed', detail: error.message });
+    await markGoogleError(conn, error);
+    return { pushed: false, error: error.message };
+  }
 }
 
 async function pushGoogle(conn, buyerName, invoiceId, fields, action = 'update') {
@@ -325,12 +424,18 @@ async function retryFailedGoogleSyncs(userId) {
     [conn.business_name],
   );
 
-  let synced = 0;
-  for (const row of retryRows) {
-    const result = await pushGoogle(conn, conn.business_name, row.invoice_id, ledgerFields(row), 'retry');
-    if (result.pushed) synced += 1;
+  const result = await pushGoogleLedgerSnapshot(conn, conn.business_name);
+  if (!result.pushed) {
+    return { ok: true, attempted: retryRows.length, synced: 0, failed: retryRows.length, error: result.error };
   }
-  return { ok: true, attempted: retryRows.length, synced, failed: retryRows.length - synced };
+
+  return {
+    ok: true,
+    attempted: retryRows.length,
+    synced: retryRows.length,
+    failed: 0,
+    mirrored: result.count,
+  };
 }
 
 async function duplicateInvoice(buyerName, invoiceNumber, exceptInvoiceId) {
@@ -448,12 +553,14 @@ module.exports = {
   invoiceFields,
   invoiceIdsForBuyer,
   invoiceWithSupplier,
+  invoicesWithSuppliersForBuyer,
   ledgerFields,
   logSync,
   markGoogleError,
   markGoogleOk,
   notifyBuyer,
   pushGoogle,
+  pushGoogleLedgerSnapshot,
   removeGoogle,
   removeLocalLedger,
   retryFailedGoogleSyncs,

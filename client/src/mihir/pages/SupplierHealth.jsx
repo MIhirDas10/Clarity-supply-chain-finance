@@ -85,9 +85,12 @@ export default function SupplierHealth() {
   }
 
   const total = suppliers.length;
-  const healthyCount = suppliers.filter((s) => s.band === "Healthy").length;
-  const watchCount = suppliers.filter((s) => s.band === "Watch").length;
-  const distressCount = suppliers.filter((s) => s.band === "Distress").length;
+  const activeCount = suppliers.filter((s) => s.hasBuyerActivity).length;
+  const noActivityCount = total - activeCount;
+  const activeSuppliers = suppliers.filter((s) => s.hasBuyerActivity);
+  const healthyCount = activeSuppliers.filter((s) => s.band === "Healthy").length;
+  const watchCount = activeSuppliers.filter((s) => s.band === "Watch").length;
+  const distressCount = activeSuppliers.filter((s) => s.band === "Distress").length;
 
   // how many are flagged, and which suppliers to actually show
   const watchlistCount = suppliers.filter((s) => s.watchlisted).length;
@@ -96,8 +99,8 @@ export default function SupplierHealth() {
     : suppliers;
 
   function percentOf(count) {
-    if (total === 0) return 0;
-    return Math.round((count / total) * 100);
+    if (activeCount === 0) return 0;
+    return Math.round((count / activeCount) * 100);
   }
 
   if (loading) {
@@ -121,10 +124,10 @@ export default function SupplierHealth() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Supplier Risk Panel
+            Supplier Health Analytics
           </h1>
           <p className="text-slate-500 mt-1 text-sm">
-            Real-time health analytics and distress monitoring.
+            AP-ledger risk signals for this buyer's suppliers.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -161,7 +164,9 @@ export default function SupplierHealth() {
                 <AlertTriangle className="w-5 h-5 text-amber-400" />
                 <div>
                   <h4 className="font-semibold text-sm text-slate-100">
-                    Distress Signal Detected
+                    {alert.current_band === "Watch"
+                      ? "Watch Signal Detected"
+                      : "Distress Signal Detected"}
                   </h4>
                   <p className="text-slate-300 text-sm mt-0.5">
                     {alert.message}
@@ -177,21 +182,27 @@ export default function SupplierHealth() {
         <div className="bg-white border border-slate-200/90 shadow-sm rounded-xl p-5">
           <div className="flex items-center justify-between text-slate-400">
             <h3 className="text-[11px] font-bold uppercase tracking-wider">
-              Total Suppliers
+              Buyer Suppliers
             </h3>
           </div>
           <p className="text-3xl font-bold text-slate-900 mt-2">{total}</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {noActivityCount} with no AP activity
+          </p>
         </div>
 
         <div className="bg-white border border-slate-200/90 shadow-sm rounded-xl p-5">
           <div className="flex items-center justify-between text-slate-400">
             <h3 className="text-[11px] font-bold uppercase tracking-wider">
-              Healthy (&gt;{config?.watchBelow || 80})
+              Active in AP Ledger
             </h3>
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           </div>
           <p className="text-3xl font-bold text-slate-900 mt-2">
-            {healthyCount}
+            {activeCount}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            {healthyCount} healthy
           </p>
         </div>
 
@@ -219,12 +230,12 @@ export default function SupplierHealth() {
       </div>
 
       {/* muted risk distribution bar */}
-      {total > 0 && (
+      {activeCount > 0 && (
         <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-sm space-y-2.5">
           <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-            <span>Portfolio Risk Distribution</span>
+            <span>Active Supplier Risk Distribution</span>
             <span>
-              {healthyCount} of {total} Healthy
+              {healthyCount} of {activeCount} Active Healthy
             </span>
           </div>
           <div className="w-full h-2 rounded-full overflow-hidden flex bg-slate-100">
@@ -244,7 +255,7 @@ export default function SupplierHealth() {
           <div className="flex items-center gap-6 text-[11px] text-slate-500 font-medium pt-0.5">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-600/80"></span>
-              Healthy {percentOf(healthyCount)}%
+            Healthy {percentOf(healthyCount)}%
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2 rounded-full bg-amber-500/80"></span>
@@ -263,6 +274,7 @@ export default function SupplierHealth() {
         {visibleSuppliers.map((supplier) => {
           const isDistress = supplier.band === "Distress";
           const isWatch = supplier.band === "Watch";
+          const hasNoActivity = supplier.band === "No Activity" || !supplier.hasBuyerActivity;
 
           let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
           let scoreBg = "bg-slate-100 text-slate-800 border-slate-200";
@@ -273,6 +285,9 @@ export default function SupplierHealth() {
           } else if (isWatch) {
             badgeStyle = "bg-amber-50 text-amber-700 border-amber-200/80";
             scoreBg = "bg-amber-50 text-amber-700 border-amber-200/80";
+          } else if (hasNoActivity) {
+            badgeStyle = "bg-slate-50 text-slate-500 border-slate-200/80";
+            scoreBg = "bg-slate-50 text-slate-500 border-slate-200/80";
           } else {
             badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-200/80";
             scoreBg = "bg-emerald-50 text-emerald-700 border-emerald-200/80";
@@ -295,10 +310,10 @@ export default function SupplierHealth() {
                     className={`w-12 h-12 rounded-lg border flex flex-col items-center justify-center font-semibold shrink-0 ${scoreBg}`}
                   >
                     <span className="text-sm font-bold leading-none">
-                      {supplier.score}
+                      {supplier.score ?? "--"}
                     </span>
                     <span className="text-[9px] opacity-70 mt-0.5 font-medium">
-                      / 100
+                      {hasNoActivity ? "No AP" : "/ 100"}
                     </span>
                   </div>
 
@@ -317,6 +332,9 @@ export default function SupplierHealth() {
                           On Watchlist
                         </span>
                       )}
+                      <span className="px-2 py-0.5 rounded border text-[10px] font-semibold tracking-wider uppercase bg-white text-slate-500 border-slate-200/80">
+                        {supplier.hasBuyerActivity ? "AP Activity" : "No AP Activity"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -335,7 +353,7 @@ export default function SupplierHealth() {
                       Early Funding
                     </p>
                     <p className="text-slate-800 text-sm font-semibold">
-                      {supplier.earlyFundingRate}%
+                      {hasNoActivity ? "--" : `${supplier.earlyFundingRate}%`}
                     </p>
                   </div>
                   <div className="hidden md:block">
@@ -389,7 +407,9 @@ export default function SupplierHealth() {
                             </span>
                           </div>
                           <p className="text-lg font-bold text-slate-800">
-                            {supplier.earlyFunded} / {supplier.totalInvoices}
+                            {hasNoActivity
+                              ? "Not scored"
+                              : `${supplier.earlyFunded} / ${supplier.totalInvoices}`}
                           </p>
                         </div>
                         <div className="bg-white rounded-lg p-3.5 border border-slate-200/80 shadow-xs">
@@ -400,7 +420,7 @@ export default function SupplierHealth() {
                             </span>
                           </div>
                           <p className="text-lg font-bold text-slate-800">
-                            {supplier.avgDiscountRate}%
+                            {hasNoActivity ? "Not scored" : `${supplier.avgDiscountRate}%`}
                           </p>
                         </div>
                         <div className="bg-white rounded-lg p-3.5 border border-slate-200/80 shadow-xs">
@@ -435,14 +455,16 @@ export default function SupplierHealth() {
                         Computation Trace
                       </h4>
                       <div className="bg-white rounded-lg p-4 border border-slate-200/80 shadow-xs space-y-3">
-                        <div className="flex items-start gap-2.5">
-                          <div className="mt-0.5 p-1 rounded bg-slate-100 text-slate-600 shrink-0">
-                            <ShieldCheck className="w-3 h-3" />
+                        {supplier.hasBuyerActivity && (
+                          <div className="flex items-start gap-2.5">
+                            <div className="mt-0.5 p-1 rounded bg-slate-100 text-slate-600 shrink-0">
+                              <ShieldCheck className="w-3 h-3" />
+                            </div>
+                            <p className="text-slate-600 text-xs font-medium">
+                              Base trust score initialized: 100 pts
+                            </p>
                           </div>
-                          <p className="text-slate-600 text-xs font-medium">
-                            Base trust score initialized: 100 pts
-                          </p>
-                        </div>
+                        )}
 
                         {supplier.reasons.map((reason, idx) => (
                           <div key={idx} className="flex items-start gap-2.5">
@@ -466,7 +488,7 @@ export default function SupplierHealth() {
                             Calculated Health Rating
                           </span>
                           <span className="text-sm font-bold text-slate-900">
-                            {supplier.score} / 100
+                            {supplier.score == null ? "Not scored" : `${supplier.score} / 100`}
                           </span>
                         </div>
                       </div>

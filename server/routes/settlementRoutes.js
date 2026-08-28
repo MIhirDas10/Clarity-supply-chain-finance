@@ -154,6 +154,9 @@ router.post('/reconcile-overdue', async (req, res) => {
       invoice.id,
       'overdue'
     )));
+    result.rows.forEach((invoice) => {
+      erp.syncInvoiceToSheet(invoice.id).catch((e) => console.error('ERP overdue sync failed:', e.message));
+    });
     res.json({ escalated: result.rowCount, invoices: result.rows });
   } catch (error) {
     res.status(500).json({ message: 'Could not reconcile overdue invoices' });
