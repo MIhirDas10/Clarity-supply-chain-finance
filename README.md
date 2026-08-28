@@ -1,122 +1,45 @@
-# Clarity — B2B Invoice Discounting & Supply Chain Finance Platform
+# Clarity - B2B Invoice Discounting and Supply Chain Finance Platform
 
-A single, unified codebase that merges the work of all four group members into one
-running system. It has **one base** with two folders:
+## Overview
+Small and medium-sized enterprises (SMEs) routinely wait 90 to 120 days to be paid on confirmed B2B invoices. This long payment cycle locks up working capital and stalls payroll, procurement, and growth. Clarity is a trusted, transparent marketplace that connects suppliers with funders willing to finance verified receivables, providing a single place to run the full financing lifecycle with proper confirmation, risk assessment, and settlement.
 
-- **`client/`** — the React (Vite) frontend, one app with one sidebar.
-- **`server/`** — the Express backend, one API on port 5000.
+## Features
 
-> Course: CSE471 — System Analysis and Design · Group 4 · Lab Section 9
+### Supplier Onboarding & Invoice Origination
+- **Invoice Upload with OCR & Cloud Storage:** Upload invoice PDFs/images to Cloudinary; OCR extracts key fields and catches duplicate or invalid entries before financing begins.
+- **Invoice Status Pipeline:** Guarded state machine (Submitted -> Buyer Confirmed -> Funded -> Payout Initiated -> Completed) with in-app notifications and email alerts.
+- **Real-Time Discount Rate Calculator:** See exact payouts before accepting early funding based on the buyer's credit score.
+- **Cash Flow Forecast Engine:** 30/60/90-day expected-inflow view built from real invoice and planned-expense records.
 
----
+### Buyer Confirmation & Payables Management
+- **Invoice Confirmation & Digital Acknowledgment:** Buyers confirm, request corrections, or dispute invoices. Confirmation gates marketplace eligibility.
+- **Supplier Health & Distress-Signal Analytics:** Weighted supplier health score with Healthy/Watch/Distress bands.
+- **Dispute Filing & Invoice Freeze:** Disputes atomically freeze invoices and remove them from funding until resolved.
+- **Buyer-Funded Early Payment:** Buyers with surplus cash can pay suppliers early at a negotiated discount without a third-party funder.
 
-## What each member built (all live in the one app)
+### Funding Marketplace, Risk & Settlement
+- **Invoice Marketplace with First-Come-First-Funded Locking:** Database row-level claim lock prevents double-funding.
+- **Know Your Business (KYB):** Admin review for trade licenses, TIN certificates, and bank account details.
+- **Investor Portfolio & Analytics:** Deployed capital tracking, projected vs. realized returns, maturity schedule, and adverse-scenario stress simulation.
+- **Buyer Credit Scoring + Risk-Based Pricing:** Explainable buyer credit score that drives discount pricing, credit limits, and marketplace confidence.
+- **Auto-Invest Rules:** Standing criteria to automatically fund matching invoices.
+- **Wallet Funding:** Deposit capital and fund invoices through a reconciled wallet ledger.
+- **Repayment & Settlement Engine:** Collects buyer repayment and runs the funder-return / platform-fee / supplier waterfall in one transaction.
+- **Calendar Sync:** Syncs due and maturity dates with reminders to Google Calendar.
 
-| Member | Feature | Where in the code | API it uses |
-|--------|---------|-------------------|-------------|
-| **Mihir** | Invoice Status **Pipeline Tracker** and **ERP / Accounting Sync** | `client/src/mihir/` | `GET/PATCH /api/pipeline/invoices`, `GET/POST/PATCH /api/erp` (Supabase + pg + Google Sheets) |
-| **Apurba** | Invoice **Upload (OCR)**, **My Invoices**, **Payout History** + CSV | `client/src/apurba/` | `GET/POST /api/invoices`, `GET /api/payouts` (pg) |
-| **Digonto** | Real-Time **Discount Rate Calculator** | `client/src/digonto/` | `GET/POST /api/invoices` (pg) |
-| **Ameet** | **Cash Flow Forecast**, Buyer-Funded **Dynamic Discounting**, **Repayment Calendar**, and **Repayment & Settlement** | `client/src/ameet/` | `GET /api/cashflow/forecast`, `GET/POST/PATCH /api/dynamic-discounting`, `GET/POST /api/settlements`, `GET/POST /api/calendar` (pg + Google Calendar) |
+## System Architecture & Technologies
 
-Each member's original source lives in its **own subfolder** and was kept intact.
-Only the "glue" that joins them (the sidebar/router, API base URLs, and a merged
-database schema) was added.
+- **Frontend:** React (Vite), Tailwind CSS, Lucide React icons
+- **Backend:** Node.js, Express
+- **Database:** Supabase (managed PostgreSQL) with raw `pg` SQL (No ORM)
+- **Authentication:** JWT (jsonwebtoken), bcrypt password hashing, Role-based Access Control (Supplier, Buyer, Funder, Admin)
+- **External APIs:**
+  - Cloudinary (Invoice document storage)
+  - Nodemailer / Gmail SMTP (Email notifications)
+  - bKash / UddoktaPay (Deposits)
+  - Google Calendar API (Reminders)
 
----
-
-## How it fits together
-
-```
-                 ┌─────────────────────────────────────────────┐
-   Browser ────► │  client/  (Vite React, one sidebar/router)  │
-                 └───────────────┬─────────────────────────────┘
-                                 │  /api/*  (Vite dev proxy → :5000)
-                 ┌───────────────▼─────────────────────────────┐
-                 │  server/  (one Express app, port 5000)       │
-                 │   /api/invoices, /api/payouts   → pg         │
-                 │   /api/pipeline/invoices        → Supabase   │
-                 │   /api/cashflow, /api/settlements → pg       │
-                 │   /api/calendar → Google Calendar + pg      │
-                 └───────────────┬─────────────────────────────┘
-                                 │
-                 ┌───────────────▼─────────────────────────────┐
-                 │  One Supabase PostgreSQL database            │
-                 │  invoices (+ number/amount/status synced by  │
-                 │  a trigger) · invoice_history · funders ...  │
-                 └─────────────────────────────────────────────┘
-```
-
-Both data layers (raw `pg` and the Supabase client) point at the **same** Supabase
-database, so every feature reads and writes the same invoices. A database trigger
-keeps the different column names the members used (`invoice_number`/`number`,
-`invoice_amount`/`amount`, `status`/`current_stage`) in sync automatically.
-
----
-
-## Running it
-
-### 1. Prerequisites
-- Node.js v18+
-- A Supabase project (free tier is fine)
-
-### 2. Configure the server
-```bash
-cp server/.env.example server/.env
-```
-Then edit `server/.env` and fill in:
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI_ERP` for ERP / Google Sheets sync
-- `DATABASE_URL` — Supabase → Project Settings → Database → Connection string (Session pooler)
-- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — Supabase → Project Settings → API
-
-### 3. Install everything
-```bash
-npm run install:all
-```
-
-### 4. Create the tables + sample data (run once)
-```bash
-npm run setup
-```
-
-### 5. Start the server and client (two terminals)
-The server and client run separately. Open two terminals in this folder:
-
-```bash
-npm run dev:server
-```
-```bash
-npm run dev:client
-```
-- Client: http://localhost:5173
-- API: http://localhost:5001  ·  API docs: http://localhost:5001/api-docs
-
----
-
-## Folder map
-
-```
-Clarity/
-├── client/                 # one React app
-│   └── src/
-│       ├── App.tsx         # router + layout (glue)
-│       ├── main.tsx        # entry + shared CSS (glue)
-│       ├── components/     # unified Sidebar + Header (glue)
-│       ├── ameet/          # Ameet's Cashflow, buyer fended dynamic discounting, settelment page and google calendar api inteegration 
-│       ├── digonto/        # Digonto's Discount Calculator (InvoiceForm + page)
-│       ├── ameet/          # Ameet's Forecast / Discounting / Settlement / Calendar
-│       ├── mihir/          # Mihir's Pipeline Tracker
-│       └── apurba/         # Apurba's Upload / My Invoices / Payout History
-├── server/                 # one Express API
-│   ├── index.js            # entry: mounts every route (glue)
-│   ├── routes/             # member feature routes (Apurba, Ameet, Digonto, Mihir)
-│   ├── controllers/        # Mihir's pipeline controller
-│   ├── config/ services/   # Mihir's Supabase client + SMS stub
-│   ├── db.js               # Apurba's pg pool
-│   ├── sql/                # schema.sql + seed.sql
-│   └── setup.js            # creates tables and loads sample data
-└── docs/                   # assignment (functional requirements) doc
-```
-
-Each member's feature code lives in its own subfolder. The full original,
-untouched branches are kept separately outside this project in `../our code/`.
+## Technical Highlights
+- **Robust Concurrency Control:** Row-level database locking (`SELECT ... FOR UPDATE`) guarantees race condition prevention in the invoice funding marketplace.
+- **Guarded State Machines:** Strict status pipelines enforce business rules across all lifecycle events of an invoice.
+- **Dynamic Discounting Engine:** Calculates complex pricing logic with safety checks using PostgreSQL database transactions.
