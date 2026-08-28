@@ -250,7 +250,7 @@ const FunderWallet = () => {
           </form>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
           <div className="flex items-center justify-between p-6 pb-0">
             <h2 className="text-lg font-semibold text-slate-900">Transaction history</h2>
             {hasPendingDeposit && (

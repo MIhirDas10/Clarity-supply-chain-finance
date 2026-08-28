@@ -120,10 +120,10 @@ function AdminDashboard() {
   const pending = users.filter((u) => u.status === 'Pending');
 
   return (
-    <div className="auth-admin-page" style={{ maxWidth: 1600, display: 'flex', gap: '32px', alignItems: 'flex-start' }}>
+    <div className="auth-admin-page flex flex-col lg:flex-row gap-8 items-start w-full max-w-[1600px]">
       
       {/* Document Viewer Side Panel - Moved to Left per user request */}
-      <div className="w-96 shrink-0 sticky top-8">
+      <div className="w-full lg:w-96 shrink-0 lg:sticky top-8">
         <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-slate-900">

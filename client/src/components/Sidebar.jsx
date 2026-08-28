@@ -29,7 +29,7 @@ const navItems = [
   { label: "Settings", to: "/settings", icon: Settings, built: true },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth();
   const initials = (user?.business_name || "Supplier")
     .split(" ")
@@ -39,10 +39,15 @@ export default function Sidebar() {
     .toUpperCase();
 
   return (
-    <aside
-      className="fixed left-0 top-0 bottom-0 w-[250px] flex flex-col z-30 border-r"
-      style={{ backgroundColor: "var(--sidebar-bg)", borderColor: "var(--border)" }}
-    >
+    <>
+      <div 
+        className={`fixed inset-0 bg-slate-900/50 z-40 lg:hidden transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} 
+        onClick={onClose} 
+      />
+      <aside
+        className={`fixed left-0 top-0 bottom-0 w-[250px] flex flex-col z-50 border-r transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ backgroundColor: "var(--sidebar-bg)", borderColor: "var(--border)" }}
+      >
       {/* Logo */}
       <div className="px-5 pt-5 pb-2">
         <div className="flex items-center gap-2.5 mb-1">
@@ -85,6 +90,7 @@ export default function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onClose}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200"
             style={({ isActive }) => ({
               color: isActive ? "#FFFFFF" : "var(--text-secondary)",
@@ -137,5 +143,6 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

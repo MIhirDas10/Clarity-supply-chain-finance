@@ -90,6 +90,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    window.location.href = '/login';
   }
 
   return (

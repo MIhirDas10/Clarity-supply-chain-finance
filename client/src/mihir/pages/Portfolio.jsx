@@ -185,14 +185,14 @@ export default function Portfolio() {
 
     // Theme tokens.
     const t = dark ? {
-        page: 'bg-[#0a0e0d] absolute inset-0 p-4 lg:p-6 flex flex-col overflow-hidden z-10',
+        page: 'bg-[#0a0e0d] min-h-screen p-4 lg:p-6 flex flex-col z-10',
         card: 'bg-[#121613] border border-white/5',
         h1: 'text-white', sub: 'text-slate-400', muted: 'text-slate-500',
         thead: 'text-slate-500', rowHover: 'hover:bg-white/[0.03]', divider: 'border-white/5',
         input: 'bg-[#121613] border-white/10 text-white', toggle: 'bg-[#121613] border-white/10 text-amber-400',
         track: '#1e2621'
     } : {
-        page: 'bg-slate-50 absolute inset-0 p-4 lg:p-6 flex flex-col overflow-hidden z-10',
+        page: 'bg-slate-50 min-h-screen p-4 lg:p-6 flex flex-col z-10',
         card: 'bg-white border border-slate-200/80', h1: 'text-slate-900', sub: 'text-slate-500', muted: 'text-slate-400',
         thead: 'text-slate-400', rowHover: 'hover:bg-slate-50', divider: 'border-slate-100',
         input: 'bg-white border-slate-200 text-slate-800', toggle: 'bg-white border-slate-200 text-slate-600',

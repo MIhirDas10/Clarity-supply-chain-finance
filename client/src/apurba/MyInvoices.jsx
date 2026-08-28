@@ -165,6 +165,7 @@ function MyInvoices() {
           </div>
         </div>
 
+        <div className="overflow-x-auto w-full">
         <table className="ledger">
           <thead>
             <tr>
@@ -200,6 +201,7 @@ function MyInvoices() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
