@@ -313,6 +313,7 @@ router.post('/confirmations/:id/confirm', async (req, res) => {
       return res.status(404).json({ message: 'Invoice not found or unauthorized' });
     }
 
+    erp.syncInvoiceToSheet(invoiceId).catch((e) => console.error('ERP invoice-confirm sync failed:', e.message));
     res.status(200).json({ message: 'Invoice confirmed successfully', invoice: result.rows[0] });
   } catch (error) {
     res.status(500).json({ error: error.message });

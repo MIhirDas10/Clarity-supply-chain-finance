@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FileSpreadsheet, RefreshCw, Link2, Power, CheckCircle2, AlertTriangle,
     Users, ScrollText, ExternalLink, Wallet, Clock, Landmark, Banknote,
-    ShieldAlert, Settings2, Zap, Loader2, Plus, Pencil, Trash2, X
+    ShieldAlert, Settings2, Zap, Loader2, Plus, Pencil, Trash2, X, Database
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext.jsx';
 
@@ -68,7 +68,6 @@ export default function ErpIntegration() {
     const [log, setLog] = useState([]);
     const [suppliers, setSuppliers] = useState(null);
     const [reconciliation, setReconciliation] = useState(null);
-    const [adminSummary, setAdminSummary] = useState([]);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState('');
     const [flash, setFlash] = useState('');
@@ -96,14 +95,13 @@ export default function ErpIntegration() {
             if (withSuppliers) {
                 api.get('/api/erp/suppliers').then(setSuppliers).catch(() => {});
                 api.get('/api/erp/reconciliation').then(setReconciliation).catch(() => {});
-                if (user?.role === 'admin') api.get('/api/erp/admin/summary').then(setAdminSummary).catch(() => {});
             }
         } catch (error) {
             setFlash(error.message || 'Could not load ERP ledger.');
         } finally {
             setLoading(false);
         }
-    }, [user?.role]);
+    }, []);
 
     useEffect(() => { refresh(true); }, [refresh]);
 
@@ -261,7 +259,7 @@ export default function ErpIntegration() {
                             <FileSpreadsheet className="w-7 h-7 text-emerald-600" />
                         </div>
                         <h2 className="text-lg font-bold text-slate-900">Turn on your accounts-payable ledger</h2>
-                        <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto">
+                        <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto text-center">
                             Every invoice you confirm, that gets funded, disputed, or settled will appear here automatically —
                             no manual entry. Start with the built-in ledger, then optionally connect a real Google Sheet.
                         </p>
@@ -406,22 +404,22 @@ export default function ErpIntegration() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                                            <th className="px-5 py-2.5">Invoice</th>
-                                            <th className="px-3 py-2.5">Supplier</th>
-                                            <th className="px-3 py-2.5 text-right">Amount</th>
-                                            <th className="px-3 py-2.5 text-right">Early Payout</th>
-                                            <th className="px-3 py-2.5">Due</th>
-                                            <th className="px-3 py-2.5">Status</th>
-                                            <th className="px-3 py-2.5 text-right">Updated</th>
-                                            <th className="px-5 py-2.5 text-right">Actions</th>
+                                        <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-100 bg-slate-900 border-b border-slate-900">
+                                            <th className="px-5 py-3">Invoice</th>
+                                            <th className="px-3 py-3">Supplier</th>
+                                            <th className="px-3 py-3 text-right">Amount</th>
+                                            <th className="px-3 py-3 text-right">Early Payout</th>
+                                            <th className="px-3 py-3">Due</th>
+                                            <th className="px-3 py-3 text-center">Status</th>
+                                            <th className="px-3 py-3 text-right">Updated</th>
+                                            <th className="px-5 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {ledger.map(r => {
                                             const s = statusStyle(r.erp_status);
                                             return (
-                                                <tr key={r.invoice_id} className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors ${r._changed ? 'bc-row-flash' : ''}`}>
+                                                <tr key={r.invoice_id} className={`border-b border-slate-50 hover:bg-slate-100 transition-colors ${r._changed ? 'bc-row-flash' : ''}`}>
                                                     <td className="px-5 py-3 font-semibold text-slate-800">
                                                         <div className="flex items-center gap-2">
                                                             {r.invoice_number}
@@ -442,10 +440,14 @@ export default function ErpIntegration() {
                                                     <td className="px-3 py-3 text-right tabular-nums text-slate-500">{taka(r.payout_amount)}</td>
                                                     <td className="px-3 py-3 text-slate-500">{r.due_date || '—'}</td>
                                                     <td className="px-3 py-3">
-                                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${s.cls}`}>
-                                                            <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}></span>{r.erp_status}
-                                                        </span>
-                                                        <SyncBadge isGoogle={isGoogle} row={r} />
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <div className="w-[90px] flex justify-center">
+                                                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${s.cls}`}>
+                                                                    <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}></span>{r.erp_status}
+                                                                </span>
+                                                            </div>
+                                                            <SyncBadge isGoogle={isGoogle} row={r} />
+                                                        </div>
                                                     </td>
                                                     <td className="px-3 py-3 text-right text-[11px] text-slate-400 whitespace-nowrap">{timeAgo(r.updated_at)}</td>
                                                     <td className="px-5 py-3">
@@ -453,11 +455,6 @@ export default function ErpIntegration() {
                                                             <button onClick={() => openEdit(r)} title={r.source === 'manual' ? 'Edit' : 'Edit accounting fields'}
                                                                 className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
                                                                 <Pencil className="w-3.5 h-3.5" />
-                                                            </button>
-                                                            <button onClick={() => removeRow(r)} disabled={r.source !== 'manual'}
-                                                                title={r.source === 'manual' ? 'Delete' : 'Platform rows sync automatically'}
-                                                                className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 enabled:hover:text-rose-500 enabled:hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                                                                <Trash2 className="w-3.5 h-3.5" />
                                                             </button>
                                                         </div>
                                                     </td>
@@ -473,20 +470,26 @@ export default function ErpIntegration() {
                         </div>
 
                         {/* Cross-reference + activity log */}
-                        <div className="grid lg:grid-cols-2 gap-5">
-                            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
-                                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-slate-400" /> Supplier cross-reference</h3>
-                                <p className="text-xs text-slate-400 mb-3">
-                                    {suppliers?.source === 'google'
-                                        ? `Checked against ${suppliers.sheetCount} suppliers in your sheet.`
-                                        : 'Connect Google Sheets to check these against your own supplier master list.'}
-                                </p>
-                                <div className="space-y-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+                        <div className="grid lg:grid-cols-2 gap-5 items-start">
+                            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                                <div className="bg-slate-900 px-5 py-3.5 border-b border-slate-900 flex items-center justify-between gap-3">
+                                    <h3 className="text-sm font-bold text-white flex items-center gap-2"><Users className="w-4 h-4 text-slate-400" /> Supplier cross-reference</h3>
+                                    <button onClick={() => api.get('/api/erp/suppliers').then(setSuppliers).catch(() => {})} className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Refresh suppliers">
+                                        <RefreshCw className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                                <div className="p-4 sm:p-5 flex-1 flex flex-col">
+                                    <p className="text-[11px] text-slate-500 mb-3 font-medium px-2">
+                                        {suppliers?.source === 'google'
+                                            ? `Checked against ${suppliers.sheetCount} suppliers in your sheet.`
+                                            : 'Connect Google Sheets to check these against your own supplier master list.'}
+                                    </p>
+                                    <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto custom-scrollbar -mx-2 px-2">
                                     {(suppliers?.suppliers || []).map((s, i) => (
-                                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 border border-slate-100">
+                                        <div key={i} className="flex items-center justify-between py-3 px-2 hover:bg-slate-50/50 rounded-lg transition-colors">
                                             <div className="min-w-0">
-                                                <span className="text-sm text-slate-700 flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5 text-slate-400" />{s.supplier}</span>
-                                                <p className="text-[11px] text-slate-400 truncate max-w-[280px]">
+                                                <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5 text-slate-400" />{s.supplier}</span>
+                                                <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[280px]">
                                                     {s.reason}{s.matchedTo ? `: ${s.matchedTo}` : ''}
                                                     {s.healthBand ? ` / Health ${s.healthBand} ${s.healthScore}` : ''}
                                                 </p>
@@ -501,9 +504,10 @@ export default function ErpIntegration() {
                                         </div>
                                     ))}
                                     {suppliers?.sheetDuplicates?.length > 0 && (
-                                        <p className="text-[11px] text-amber-600">Duplicate supplier names in sheet: {suppliers.sheetDuplicates.slice(0, 3).join(', ')}</p>
+                                        <p className="text-[11px] text-amber-600 py-2 px-2">Duplicate supplier names in sheet: {suppliers.sheetDuplicates.slice(0, 3).join(', ')}</p>
                                     )}
-                                    {(!suppliers?.suppliers || suppliers.suppliers.length === 0) && <p className="text-xs text-slate-400">No suppliers invoicing you yet.</p>}
+                                    {(!suppliers?.suppliers || suppliers.suppliers.length === 0) && <p className="text-xs text-slate-400 py-2 px-2">No suppliers invoicing you yet.</p>}
+                                </div>
                                 </div>
                             </div>
 
@@ -514,31 +518,34 @@ export default function ErpIntegration() {
                                 onNotify={notifyReconciliation}
                             />
 
-                            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
-                                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3"><Clock className="w-4 h-4 text-slate-400" /> Sync activity</h3>
-                                <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                            <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                                <div className="bg-slate-900 px-5 py-3.5 border-b border-slate-900">
+                                    <h3 className="text-sm font-bold text-white flex items-center gap-2"><Clock className="w-4 h-4 text-slate-400" /> Sync activity</h3>
+                                </div>
+                                <div className="p-4 sm:p-5 flex-1">
+                                    <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto custom-scrollbar -mx-2 px-2">
                                     {log.map(l => (
-                                        <div key={l.id} className="flex items-start gap-2.5 text-xs">
-                                            <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${l.status === 'success' ? 'bg-emerald-500' : l.status === 'failed' ? 'bg-rose-500' : 'bg-slate-300'}`}></span>
+                                        <div key={l.id} className="flex items-start gap-3 py-3 px-2 text-xs hover:bg-slate-50/50 rounded-lg transition-colors">
+                                            <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 shadow-sm ${l.status === 'success' ? 'bg-emerald-500 shadow-emerald-500/20' : l.status === 'failed' ? 'bg-rose-500 shadow-rose-500/20' : 'bg-slate-300'}`}></div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-slate-700">
+                                                <p className="text-slate-800 leading-relaxed">
                                                     <span className="font-semibold capitalize">{l.action}</span>
-                                                    {l.invoice_number && <span className="text-slate-500"> · {l.invoice_number}</span>}
+                                                    {l.invoice_number && <span className="text-slate-500 font-medium"> · {l.invoice_number}</span>}
                                                     {l.erp_status && <span className="text-slate-400"> → {l.erp_status}</span>}
-                                                    <span className={`ml-1.5 text-[10px] font-semibold uppercase ${l.target === 'google' ? 'text-emerald-600' : 'text-slate-400'}`}>{l.target}</span>
+                                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${l.target === 'google' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>{l.target}</span>
                                                 </p>
-                                                {l.detail && <p className="text-[11px] text-slate-400">{l.detail}</p>}
+                                                {l.detail && <p className="text-[11px] text-slate-500 mt-0.5">{l.detail}</p>}
                                             </div>
-                                            <span className="text-[10px] text-slate-400 shrink-0">{timeAgo(l.created_at)}</span>
+                                            <span className="text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">{timeAgo(l.created_at)}</span>
                                         </div>
                                     ))}
-                                    {log.length === 0 && <p className="text-xs text-slate-400">No activity yet.</p>}
+                                    {log.length === 0 && <p className="text-xs text-slate-400 py-2">No activity yet.</p>}
+                                </div>
                                 </div>
                             </div>
                         </div>
                     </>
                 )}
-                <AdminOverview visible={user?.role === 'admin'} rows={adminSummary} />
             </div>
             {/* Create / edit payable modal */}
             {modal && (
@@ -625,21 +632,21 @@ export default function ErpIntegration() {
 
 function HealthMini({ label, value, danger }) {
     return (
-        <div className={`rounded-lg border px-3 py-2 ${danger ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-            <p className={`mt-0.5 text-sm font-semibold ${danger ? 'text-rose-700' : 'text-slate-700'}`}>{value}</p>
+        <div className="rounded-xl border border-[#C6DEF6] bg-[#E6F5FA] px-4 py-2.5 shadow-sm hover:shadow-md transition-shadow duration-300">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-slate-700">{label}</p>
+            <p className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{value}</p>
         </div>
     );
 }
 
 function AgingBoard({ aging }) {
     const items = [
-        ['Future', aging.future || 0, 'text-slate-700'],
-        ['Due soon', aging.due_soon || 0, 'text-amber-600'],
-        ['Due today', aging.due_today || 0, 'text-indigo-600'],
-        ['1-30 overdue', aging.overdue_1_30 || 0, 'text-rose-600'],
-        ['31-60 overdue', aging.overdue_31_60 || 0, 'text-red-600'],
-        ['60+ overdue', aging.overdue_60_plus || 0, 'text-red-700'],
+        ['Future', aging.future || 0],
+        ['Due soon', aging.due_soon || 0],
+        ['Due today', aging.due_today || 0],
+        ['1-30 overdue', aging.overdue_1_30 || 0],
+        ['31-60 overdue', aging.overdue_31_60 || 0],
+        ['60+ overdue', aging.overdue_60_plus || 0],
     ];
     return (
         <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
@@ -648,10 +655,10 @@ function AgingBoard({ aging }) {
                 <span className="text-xs text-slate-400">Overdue {taka(aging.overdue_amount)}</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                {items.map(([label, value, cls]) => (
-                    <div key={label} className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-                        <p className={`text-xl font-bold tabular-nums ${cls}`}>{value}</p>
+                {items.map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-[#C6DEF6] bg-[#E6F5FA] px-4 py-2.5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-slate-700">{label}</p>
+                        <p className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{value}</p>
                     </div>
                 ))}
             </div>
@@ -660,32 +667,40 @@ function AgingBoard({ aging }) {
 }
 
 function SyncBadge({ isGoogle, row }) {
-    if (!isGoogle) return <p className="mt-1 text-[10px] font-semibold uppercase text-slate-400">Local</p>;
-    if (row.synced_to_google) return <p className="mt-1 text-[10px] font-semibold uppercase text-emerald-600">Synced</p>;
-    return <p className="mt-1 text-[10px] font-semibold uppercase text-amber-600">Pending sync</p>;
+    if (!isGoogle) return <Database className="w-3.5 h-3.5 text-slate-400 -mt-[1px]" title="Local" />;
+    if (row.synced_to_google) return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 -mt-[1px]" title="Synced" />;
+    return <Clock className="w-3.5 h-3.5 text-amber-500 -mt-[1px]" title="Pending sync" />;
 }
 
 function ReconciliationPanel({ reconciliation, busy, onRefresh, onNotify }) {
     const issues = reconciliation?.issues || [];
     const counts = reconciliation?.counts || {};
     return (
-        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
-            <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-slate-400" /> Reconciliation</h3>
-                <div className="flex items-center gap-1.5">
-                    <button onClick={onRefresh} className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Refresh reconciliation">
+        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <div className="bg-slate-900 px-5 py-3.5 flex items-center justify-between gap-3 border-b border-slate-900">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-slate-400" /> Reconciliation</h3>
+                <div className="flex items-center gap-2">
+                    <button onClick={onRefresh} className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Refresh reconciliation">
                         <RefreshCw className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={onNotify} disabled={busy === 'reconNotify' || issues.length === 0}
-                        className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 disabled:opacity-50">
+                        className="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-yellow-950 bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 transition-colors shadow-sm">
                         Notify
                     </button>
                 </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-                <HealthMini label="Missing" value={counts.missing || 0} danger={(counts.missing || 0) > 0} />
-                <HealthMini label="Mismatched" value={counts.mismatched || 0} danger={(counts.mismatched || 0) > 0} />
-                <HealthMini label="Extra" value={counts.extra || 0} danger={(counts.extra || 0) > 0} />
+            <div className="p-5 flex-1">
+                <div className="flex items-center gap-2 mb-4">
+                {[
+                    { label: 'Missing', count: counts.missing, danger: (counts.missing || 0) > 0 },
+                    { label: 'Mismatched', count: counts.mismatched, danger: (counts.mismatched || 0) > 0 },
+                    { label: 'Extra', count: counts.extra, danger: (counts.extra || 0) > 0 }
+                ].map(stat => (
+                    <div key={stat.label} className={`flex-1 flex items-center justify-between px-4 py-2.5 rounded-xl border ${stat.danger ? 'bg-rose-50 border-rose-200' : 'bg-[#E6F5FA] border-[#C6DEF6]'}`}>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${stat.danger ? 'text-rose-600' : 'text-slate-600'}`}>{stat.label}</span>
+                        <span className={`text-lg font-bold tabular-nums ${stat.danger ? 'text-rose-700' : 'text-slate-900'}`}>{stat.count || 0}</span>
+                    </div>
+                ))}
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
                 {issues.slice(0, 6).map((issue, i) => (
@@ -699,54 +714,16 @@ function ReconciliationPanel({ reconciliation, busy, onRefresh, onNotify }) {
                 ))}
                 {issues.length === 0 && <p className="text-xs text-slate-400">{reconciliation?.message || 'No reconciliation issues.'}</p>}
             </div>
-        </div>
-    );
-}
-
-function AdminOverview({ visible, rows }) {
-    if (!visible) return null;
-    return (
-        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3"><Users className="w-4 h-4 text-slate-400" /> Admin ERP overview</h3>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                            <th className="py-2 pr-3">Buyer</th>
-                            <th className="py-2 px-3">Mode</th>
-                            <th className="py-2 px-3 text-right">Rows</th>
-                            <th className="py-2 px-3 text-right">Outstanding</th>
-                            <th className="py-2 px-3 text-right">Overdue</th>
-                            <th className="py-2 px-3 text-right">Failed</th>
-                            <th className="py-2 pl-3 text-right">Last sync</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {(rows || []).map(row => (
-                            <tr key={row.id} className="border-b border-slate-50">
-                                <td className="py-2 pr-3 font-semibold text-slate-700">{row.business_name}</td>
-                                <td className="py-2 px-3 text-slate-500 capitalize">{row.mode}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{row.total_rows}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{taka(row.outstanding)}</td>
-                                <td className="py-2 px-3 text-right tabular-nums text-rose-600">{row.overdue}</td>
-                                <td className="py-2 px-3 text-right tabular-nums text-amber-600">{row.failed_syncs}</td>
-                                <td className="py-2 pl-3 text-right text-xs text-slate-400">{row.last_google_sync_at ? timeAgo(row.last_google_sync_at) : '-'}</td>
-                            </tr>
-                        ))}
-                        {(!rows || rows.length === 0) && <tr><td colSpan={7} className="py-6 text-center text-slate-400">No buyers have enabled ERP sync yet.</td></tr>}
-                    </tbody>
-                </table>
             </div>
         </div>
     );
 }
 
 function Stat({ label, value, icon, tone, wide }) {
-    const tones = { amber: 'text-amber-600', indigo: 'text-indigo-600', emerald: 'text-emerald-600', rose: 'text-rose-600' };
     return (
-        <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">{icon}{label}</p>
-            <p className={`mt-1 font-bold tabular-nums ${wide ? 'text-lg' : 'text-2xl'} ${tone ? tones[tone] : 'text-slate-900'}`}>{value ?? 0}</p>
+        <div className="rounded-xl border border-[#C6DEF6] bg-[#E6F5FA] p-4 shadow-sm hover:shadow-md transition-shadow duration-300">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">{icon}{label}</p>
+            <p className={`mt-1 font-bold tabular-nums tracking-tight ${wide ? 'text-lg' : 'text-2xl'} text-slate-900`}>{value ?? 0}</p>
         </div>
     );
 }

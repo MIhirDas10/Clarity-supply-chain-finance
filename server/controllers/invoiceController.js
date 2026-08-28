@@ -2,6 +2,7 @@ const pool = require('../db');
 const smsService = require('../services/smsService');
 const healthController = require('./healthController');
 const { supplierIdsForAccount } = require('../services/accountScope');
+const erp = require('../services/erpSheets');
 
 async function accountClause(req, nextIndex = 1) {
     if (req.user.role === 'admin') {
@@ -126,7 +127,7 @@ exports.updateInvoiceStatus = async (req, res) => {
             `UPDATE invoices
              SET current_stage = $1, status = $2
              WHERE ${where}
-             RETURNING id::text AS id`,
+             RETURNING id::text AS id, buyer_name`,
             [newStatus, newStatus, id, ...scope.values]
         );
 
@@ -140,7 +141,10 @@ exports.updateInvoiceStatus = async (req, res) => {
         );
 
         await smsService.sendStatusUpdateSMS(supplierPhone, newStatus);
-        await healthController.runRecalculation();
+        await healthController.runRecalculation({
+            buyerName: updated.rows[0].buyer_name,
+        });
+        erp.syncInvoiceToSheet(updated.rows[0].id).catch((e) => console.error('ERP manual status sync failed:', e.message));
 
         res.status(200).json({ message: `Invoice ${id} status updated to ${newStatus}` });
     } catch (error) {
@@ -176,7 +180,9 @@ exports.createInvoice = async (req, res) => {
             [saved.rows[0].id, 'Submitted', actorName || req.user.business_name || 'Supplier']
         );
 
-        await healthController.runRecalculation();
+        await healthController.runRecalculation({
+            buyerName: buyerName,
+        });
 
         res.status(201).json({ ...saved.rows[0], history: [] });
     } catch (error) {

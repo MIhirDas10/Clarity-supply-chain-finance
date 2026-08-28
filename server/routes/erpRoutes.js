@@ -16,6 +16,7 @@
 //   POST   /api/erp/sync/:invoiceId     manually sync one invoice
 //   POST   /api/erp/reconcile           re-sync all of the buyer's invoices
 //   GET    /api/erp/suppliers           cross-reference supplier list
+//   POST   /api/erp/suppliers/sync      refresh the Google supplier master tab
 
 const express = require('express');
 const https = require('https');
@@ -227,6 +228,13 @@ router.post('/retry-failed', async (req, res) => {
   res.json(result);
 });
 
+router.post('/suppliers/sync', async (req, res) => {
+  const conn = await loadConnection(req.user.id);
+  const result = await erp.syncSupplierMaster(conn, buyerName(req));
+  if (!result.ok) return res.status(result.status).json({ message: result.reason });
+  res.json(result);
+});
+
 router.post('/sheet-template', async (req, res) => {
   const result = await erp.createAccountingSpreadsheet(req.user.id);
   if (!result.ok) return res.status(result.status).json({ message: result.reason });
@@ -242,12 +250,15 @@ router.get('/reconciliation', async (req, res) => {
 
 router.post('/reconciliation/notify', async (req, res) => {
   const conn = await loadConnection(req.user.id);
-  const result = await erp.reconcileSheetDifferences(conn, buyerName(req), { notify: true });
+  const result = await erp.reconcileSheetDifferences(conn, buyerName(req), {
+    notify: true,
+    recipientEmail: req.user.email,
+  });
   res.json({ notified: result.issues.length > 0, ...result });
 });
 
 router.post('/notify-overdue', async (req, res) => {
-  const result = await erp.notifyOverduePayables(req.user.id);
+  const result = await erp.notifyOverduePayables(req.user);
   if (!result.ok) return res.status(result.status).json({ message: result.reason });
   res.json(result);
 });

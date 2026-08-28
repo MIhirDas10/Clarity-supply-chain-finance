@@ -40,12 +40,23 @@ async function getAgingSummary(buyerName) {
 async function getSyncHealth(buyerName) {
   const conn = await store.findBuyerConnection(buyerName);
   const stats = await one(
-    `SELECT
-       MAX(created_at) FILTER (WHERE target='local' AND status='success') AS last_local_success,
-       MAX(created_at) FILTER (WHERE target='google' AND status='success') AS last_google_success,
-       MAX(created_at) FILTER (WHERE target='google' AND status='failed') AS last_google_failure,
-       COUNT(*) FILTER (WHERE target='google' AND status='failed')::int AS failed_google_syncs
-     FROM erp_sync_log WHERE LOWER(buyer_name)=LOWER($1)`,
+    `WITH summary AS (
+       SELECT
+         MAX(created_at) FILTER (WHERE target='local' AND status='success') AS last_local_success,
+         MAX(created_at) FILTER (WHERE target='google' AND status='success') AS last_google_success,
+         MAX(created_at) FILTER (WHERE target='google' AND status='failed') AS last_google_failure
+       FROM erp_sync_log
+       WHERE LOWER(buyer_name)=LOWER($1)
+     )
+     SELECT summary.*,
+            COUNT(log.id) FILTER (
+              WHERE log.target='google'
+                AND log.status='failed'
+                AND (summary.last_google_success IS NULL OR log.created_at > summary.last_google_success)
+            )::int AS failed_google_syncs
+     FROM summary
+     LEFT JOIN erp_sync_log log ON LOWER(log.buyer_name)=LOWER($1)
+     GROUP BY summary.last_local_success, summary.last_google_success, summary.last_google_failure`,
     [buyerName],
   );
   const pending = await one(
@@ -110,7 +121,12 @@ async function reconcileSheetDifferences(conn, buyerName, options = {}) {
     }
 
     if (options.notify && issues.length) {
-      await store.notifyBuyer(buyerName, `${issues.length} ERP reconciliation issue(s) were found between Clarity and Google Sheets.`, 'erp_reconciliation');
+      await store.notifyBuyer(
+        buyerName,
+        `${issues.length} ERP reconciliation issue(s) were found between Clarity and Google Sheets.`,
+        'erp_reconciliation',
+        options.recipientEmail,
+      );
     }
     return { source: 'google', issues, counts: issueCounts(issues), checked_at: checkedAt() };
   } catch (error) {
@@ -120,9 +136,20 @@ async function reconcileSheetDifferences(conn, buyerName, options = {}) {
   }
 }
 
-async function notifyOverduePayables(userId) {
+async function notifyOverduePayables(user) {
+  const userId = typeof user === 'object' ? user.id : user;
+  const loginEmail = typeof user === 'object' ? user.email : null;
   const conn = await store.connectionForUser(userId);
   if (!conn) return { ok: false, status: 409, reason: 'Enable the ledger first' };
+
+  const recipient = loginEmail || conn.email;
+  if (!recipient) {
+    return {
+      ok: false,
+      status: 400,
+      reason: 'Your buyer account does not have an email address.',
+    };
+  }
 
   const overdue = await one(
     `SELECT COUNT(*)::int AS count, COALESCE(SUM(amount),0) AS amount, MIN(due_date) AS oldest_due
@@ -132,14 +159,31 @@ async function notifyOverduePayables(userId) {
   );
   if (!overdue?.count) return { ok: true, sent: false, count: 0 };
 
-  await notificationService.sendNotification({
-    recipient: conn.email || process.env.BUYER_EMAIL || 'buyer@clarity.io',
+  const delivery = await notificationService.sendNotification({
+    recipient,
     message: `${overdue.count} payable(s) are overdue in ERP, totaling ${Number(overdue.amount).toLocaleString()}. Oldest due date: ${dateOnly(overdue.oldest_due)}.`,
     invoiceLink: '/buyer/erp',
     type: 'erp_overdue',
     emailSubject: 'Clarity B2B: Overdue Payables',
   });
-  return { ok: true, sent: true, count: overdue.count, amount: overdue.amount };
+
+  if (delivery?.error) {
+    return {
+      ok: false,
+      status: 502,
+      reason: `Overdue payables found, but email failed: ${delivery.error}`,
+    };
+  }
+
+  return {
+    ok: true,
+    sent: Boolean(delivery?.emailSent || delivery?.simulated),
+    email_sent: Boolean(delivery?.emailSent),
+    simulated: Boolean(delivery?.simulated),
+    notification_created: Boolean(delivery?.notificationCreated),
+    count: overdue.count,
+    amount: overdue.amount,
+  };
 }
 
 async function adminSummary() {

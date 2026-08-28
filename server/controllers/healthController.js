@@ -28,11 +28,18 @@ function validateConfig({ watchBelow, distressBelow }) {
   return null;
 }
 
+function buyerScope(req) {
+  if (req.user?.role === "buyer") {
+    return req.user.business_name;
+  }
+  return req.query.buyer;
+}
+
 exports.runRecalculation = healthService.runRecalculation;
 
 exports.getSupplierHealth = route(
   async (req, res) => {
-    const suppliers = await healthService.computeHealth(req.query.buyer);
+    const suppliers = await healthService.computeHealth(buyerScope(req));
     res.status(200).json(suppliers);
   },
   "Supplier Health Error",
@@ -41,7 +48,7 @@ exports.getSupplierHealth = route(
 
 exports.getSupplierById = route(
   async (req, res) => {
-    const suppliers = await healthService.computeHealth();
+    const suppliers = await healthService.computeHealth(buyerScope(req));
     const supplier = suppliers.find(
       (item) => String(item.id) === String(req.params.id),
     );
@@ -58,7 +65,7 @@ exports.getSupplierById = route(
 
 exports.getSummary = route(
   async (req, res) => {
-    const suppliers = await healthService.computeHealth(req.query.buyer);
+    const suppliers = await healthService.computeHealth(buyerScope(req));
     res.status(200).json(healthService.summarize(suppliers));
   },
   "Supplier Summary Error",
@@ -67,7 +74,10 @@ exports.getSummary = route(
 
 exports.recalculate = route(
   async (req, res) => {
-    const suppliers = await healthService.runRecalculation();
+    const suppliers = await healthService.runRecalculation({
+      buyerName: buyerScope(req),
+      recipientEmail: req.user.email,
+    });
     res.status(200).json({
       message: "Supplier health recalculated and saved",
       suppliersProcessed: suppliers.length,
@@ -80,7 +90,7 @@ exports.recalculate = route(
 
 exports.getAlerts = route(
   async (req, res) => {
-    res.status(200).json(await healthService.getAlerts());
+    res.status(200).json(await healthService.getAlerts(buyerScope(req)));
   },
   "Get Alerts Error",
   "Failed to fetch alerts",
@@ -123,7 +133,9 @@ exports.updateConfig = route(
 
 exports.toggleWatchlist = route(
   async (req, res) => {
-    res.status(200).json(await healthService.toggleWatchlist(req.params.id));
+    res.status(200).json(
+      await healthService.toggleWatchlist(req.params.id, buyerScope(req)),
+    );
   },
   "Toggle Watchlist Error",
   "Failed to update watchlist",
@@ -131,7 +143,7 @@ exports.toggleWatchlist = route(
 
 exports.getWatchlist = route(
   async (req, res) => {
-    const suppliers = await healthService.computeHealth();
+    const suppliers = await healthService.computeHealth(buyerScope(req));
     res.status(200).json(suppliers.filter((supplier) => supplier.watchlisted));
   },
   "Get Watchlist Error",

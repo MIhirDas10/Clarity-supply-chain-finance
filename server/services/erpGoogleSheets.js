@@ -3,7 +3,7 @@ const https = require('https');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env'), override: true });
 const pool = require('../db');
-const { clean, money: numberOrNull } = require('./erpUtils');
+const { clean, money: numberOrNull, normalizeName } = require('./erpUtils');
 
 const GOOGLE_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -129,6 +129,10 @@ async function writeValues(conn, title, a1, rows, token) {
   );
 }
 
+async function clearValues(conn, title, a1, token) {
+  await googleRequest('POST', `${SHEETS_BASE}/${conn.spreadsheet_id}/values/${sheetRange(title, a1)}:clear`, {}, token);
+}
+
 async function appendRow(conn, title, row, token) {
   const result = await googleRequest(
     'POST',
@@ -243,11 +247,67 @@ async function readPayables(conn) {
   return rows.map(parsePayable).filter((row) => row.invoice_number);
 }
 
-async function readSuppliers(conn) {
+async function replacePayables(conn, fieldRows) {
+  const token = await accessToken(conn);
+  await ensureSheet(conn, conn.ap_sheet, PAYABLE_HEADER, token);
+
+  const rows = fieldRows
+    .filter((fields) => clean(fields.invoice_number))
+    .map(payableRow);
+
+  await clearValues(conn, conn.ap_sheet, `A2:${columnName(PAYABLE_HEADER.length)}`, token);
+  if (rows.length) {
+    await writeValues(conn, conn.ap_sheet, `A2:${columnName(PAYABLE_HEADER.length)}${rows.length + 1}`, rows, token);
+  }
+
+  return rows.map((_, index) => ({ rowNumber: index + 2 }));
+}
+
+async function readSuppliers(conn, knownToken, shouldEnsure = true) {
+  const token = knownToken || await accessToken(conn);
+  if (shouldEnsure) await ensureSheet(conn, conn.supplier_sheet, SUPPLIER_HEADER, token);
+  const rows = await sheetValues(conn, conn.supplier_sheet, `A2:${columnName(SUPPLIER_HEADER.length)}`, token);
+  return rows.map((row) => ({
+    name: clean(row[0]),
+    supplierId: clean(row[1]),
+    contact: clean(row[2]),
+    status: clean(row[3]),
+    lastUpdated: clean(row[4]),
+  })).filter((row) => row.name);
+}
+
+function supplierSheetTimestamp(value) {
+  if (!value) return new Date().toISOString().slice(0, 16).replace('T', ' ');
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return clean(value);
+  return parsed.toISOString().slice(0, 16).replace('T', ' ');
+}
+
+async function replaceSuppliers(conn, supplierRows) {
   const token = await accessToken(conn);
   await ensureSheet(conn, conn.supplier_sheet, SUPPLIER_HEADER, token);
-  const rows = await sheetValues(conn, conn.supplier_sheet, 'A2:B', token);
-  return rows.map((row) => ({ name: clean(row[0]), supplierId: clean(row[1]) })).filter((row) => row.name);
+
+  const existingRows = await readSuppliers(conn, token, false).catch(() => []);
+  const existingByName = new Map(existingRows.map((row) => [normalizeName(row.name), row]));
+  const rows = supplierRows
+    .filter((row) => clean(row.name))
+    .map((row) => {
+      const existing = existingByName.get(normalizeName(row.name)) || {};
+      return [
+        clean(row.name),
+        clean(row.supplierId || row.supplier_id),
+        clean(row.contact) || existing.contact || '',
+        clean(row.status) || existing.status || 'Active',
+        supplierSheetTimestamp(row.lastUpdated || row.last_updated || existing.lastUpdated),
+      ];
+    });
+
+  await clearValues(conn, conn.supplier_sheet, `A2:${columnName(SUPPLIER_HEADER.length)}`, token);
+  if (rows.length) {
+    await writeValues(conn, conn.supplier_sheet, `A2:${columnName(SUPPLIER_HEADER.length)}${rows.length + 1}`, rows, token);
+  }
+
+  return { count: rows.length };
 }
 
 async function createTemplate(conn) {
@@ -293,5 +353,7 @@ module.exports = {
   pushPayable,
   readPayables,
   readSuppliers,
+  replaceSuppliers,
+  replacePayables,
   spreadsheetUrl,
 };

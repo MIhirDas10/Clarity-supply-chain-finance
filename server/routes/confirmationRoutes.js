@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require("../db");
 const { calculateInvoiceRisk } = require("../services/riskRatingEngine");
 const erp = require("../services/erpSheets"); // ERP
+const healthService = require("../services/supplierHealthService");
 
 async function getSupplierRecipient(client, supplierId) {
   const result = await client.query(
@@ -195,6 +196,14 @@ router.post("/:invoiceId/confirm", async (req, res) => {
     erp
       .syncInvoiceToSheet(invoiceId)
       .catch((e) => console.error("ERP confirm sync failed:", e.message));
+    healthService
+      .runRecalculation({
+        buyerName: buyer_name,
+        recipientEmail: req.user.role === "buyer" ? req.user.email : null,
+      })
+      .catch((e) =>
+        console.error("Supplier health confirm refresh failed:", e.message),
+      );
     res.json({ success: true, confirmationId, status: "Buyer Confirmed" });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -270,6 +279,14 @@ router.post("/:invoiceId/dispute", async (req, res) => {
       .syncInvoiceToSheet(invoiceId)
       .catch((e) =>
         console.error("ERP confirmation-dispute sync failed:", e.message),
+      );
+    healthService
+      .runRecalculation({
+        buyerName: buyer_name,
+        recipientEmail: req.user.role === "buyer" ? req.user.email : null,
+      })
+      .catch((e) =>
+        console.error("Supplier health dispute refresh failed:", e.message),
       );
     res.json({ success: true, status: "Disputed" });
   } catch (error) {
