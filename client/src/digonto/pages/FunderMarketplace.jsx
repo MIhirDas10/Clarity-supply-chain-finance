@@ -158,7 +158,7 @@ const FunderMarketplace = () => {
         {/* All Open Listings */}
         <section>
           <h2 className="text-xl font-bold text-slate-900 mb-4">All Open Listings</h2>
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center text-slate-500">Loading invoices...</div>
             ) : invoices.length === 0 ? (

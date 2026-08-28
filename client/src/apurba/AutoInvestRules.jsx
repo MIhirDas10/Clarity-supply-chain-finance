@@ -146,7 +146,7 @@ const AutoInvestRules = () => {
         <form onSubmit={handleCreate} className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">New rule</h2>
           {error && <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded border border-red-200">{error}</div>}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Min amount (৳)</label>
               <input type="number" min="0" value={form.min_amount}
@@ -189,7 +189,7 @@ const AutoInvestRules = () => {
           </button>
         </form>
 
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
           <div className="flex justify-between items-center p-6 pb-0">
             <h2 className="text-lg font-semibold text-slate-900">Your rules</h2>
             <button onClick={runEngine} disabled={running}

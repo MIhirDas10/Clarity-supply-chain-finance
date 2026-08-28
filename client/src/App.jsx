@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
 import { LogOut, ShieldAlert, Settings as SettingsIcon } from "lucide-react";
 import Sidebar from "./components/Sidebar.jsx";
@@ -55,15 +56,15 @@ function PausedScreen({ reason, vaultPath }) {
   );
 }
 
-function RoleLayoutInner({ children, vaultPath }) {
+function RoleLayoutInner({ children, vaultPath, onMenuClick }) {
   const { user } = useAuth();
   const location = useLocation();
   const isVault = location.pathname.includes('/vault');
   
   if (user?.is_paused && !isVault) {
     return (
-      <div className="flex-1 ml-[250px] flex flex-col relative">
-        <Header />
+      <div className="flex-1 lg:ml-[250px] w-full flex flex-col relative transition-all duration-300">
+        <Header onMenuClick={onMenuClick} />
         <main className="flex-1 overflow-x-hidden relative flex">
           <PausedScreen reason={user.pause_reason} vaultPath={vaultPath} />
         </main>
@@ -72,36 +73,39 @@ function RoleLayoutInner({ children, vaultPath }) {
   }
 
   return (
-    <div className="flex-1 ml-[250px] flex flex-col relative">
-      <Header />
+    <div className="flex-1 lg:ml-[250px] w-full flex flex-col relative transition-all duration-300">
+      <Header onMenuClick={onMenuClick} />
       <main className="flex-1 overflow-x-hidden relative">{children}</main>
     </div>
   );
 }
 
 function SupplierLayout({ children }) {
+  const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
-      <Sidebar />
-      <RoleLayoutInner vaultPath="/vault">{children}</RoleLayoutInner>
+      <Sidebar isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <RoleLayoutInner vaultPath="/vault" onMenuClick={() => setIsOpen(true)}>{children}</RoleLayoutInner>
     </div>
   );
 }
 
 function BuyerLayout({ children }) {
+  const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
-      <BuyerSidebar />
-      <RoleLayoutInner>{children}</RoleLayoutInner>
+      <BuyerSidebar isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <RoleLayoutInner onMenuClick={() => setIsOpen(true)}>{children}</RoleLayoutInner>
     </div>
   );
 }
 
 function FunderLayout({ children }) {
+  const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--page-bg)" }}>
-      <FunderSidebar />
-      <RoleLayoutInner vaultPath="/funder/vault">{children}</RoleLayoutInner>
+      <FunderSidebar isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <RoleLayoutInner vaultPath="/funder/vault" onMenuClick={() => setIsOpen(true)}>{children}</RoleLayoutInner>
     </div>
   );
 }

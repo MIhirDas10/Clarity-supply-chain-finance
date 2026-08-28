@@ -242,6 +242,7 @@ function DisputeCentre() {
                 <p className="panel-sub">{disputes.length} in total</p>
               </div>
             </div>
+            <div className="overflow-x-auto w-full">
             <table className="ledger">
               <thead>
                 <tr><th>#</th><th>Reason</th><th>Status</th></tr>
@@ -259,6 +260,7 @@ function DisputeCentre() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 
